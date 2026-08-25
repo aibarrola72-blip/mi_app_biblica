@@ -1,0 +1,6 @@
+# Conservar las clases de Supabase, PostgREST y serialización JSON
+-keep class com.supabase.** { *; }
+-keep class io.github.jan.supabase.** { *; }
+-keep class json.** { *; }
+-keepattributes Signature, *Annotation*, EnclosingMethod, InnerClasses
+-dontwarn com.supabase.**
