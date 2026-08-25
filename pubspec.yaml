@@ -47,6 +47,7 @@ dependencies:
   speech_to_text: ^7.4.0
   sqflite_common_ffi_web: ^1.1.2
   share_plus: ^13.3.0
+  google_sign_in: ^6.2.1 # Permite usar los diálogos nativos del celular
 
 dev_dependencies:
   flutter_test:

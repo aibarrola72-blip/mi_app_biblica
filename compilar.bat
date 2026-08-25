@@ -6,27 +6,27 @@ echo          COMPILADOR AUTOMÁTICO DE LA APP
 echo =======================================================
 echo.
 
-echo [1/3] Limpiando cache del proyecto...
-call flutter clean
+echo [1/4] Limpiando cache del proyecto...
+cmd /c flutter clean
 echo.
 
-echo [2/3] Descargando dependencias actualizadas...
-call flutter pub get
+echo [2/4] Descargando dependencias actualizadas...
+cmd /c flutter pub get
 echo.
 
-echo [3/3] Compilando APK de Android optimizado...
-call flutter build apk --release --split-per-abi
+echo [3/4] Compilando APK de Android optimizado...
+cmd /c flutter build apk --release --split-per-abi
 echo.
 
-echo [4/3] Compilando plataforma Web de produccion...
-call flutter build web --release
+echo [4/4] Compilando plataforma Web de produccion...
+cmd /c flutter build web --release
 echo.
 
 echo =======================================================
-echo 🎉 PROCESO TERMINADO CON ÉXITO
+echo 🎉 PROCESO TERMINADO CON EXITO
 echo =======================================================
-echo 📱 APK Android: build\app\outputs\flutter-apk\
-echo 🌐 Carpeta Web: build\web\
+echo APK Android: build\app\outputs\flutter-apk\
+echo Carpeta Web: build\web\
 echo =======================================================
 echo.
 pause
