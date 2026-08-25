@@ -216,6 +216,10 @@ class BibliaDatabaseHelper {
                 .replaceAll(RegExp(r'<[^>]*>'), '') // Elimina etiquetas de notas internas o llamadas (#)
                 .replaceAll(r"\'", "'")
                 .trim();
+            // Inyectamos el convertidor aquí para limpiar los acentos
+            textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
+            return String.fromCharCode(int.parse(m.group(1)!));
+            });
 
             if (textoLimpio.isNotEmpty) {
               textosOfflineJson.add({
