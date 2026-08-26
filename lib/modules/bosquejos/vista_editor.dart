@@ -490,6 +490,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
               // Abre la paleta inferior de ajustes
               showModalBottomSheet(
                 context: context,
+                isScrollControlled: true,
                 shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                 builder: (context) => PanelAjustesView(ajustes: _ajustesGlobales),
               );

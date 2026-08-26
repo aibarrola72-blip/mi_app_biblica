@@ -76,25 +76,25 @@ class BibliaDatabaseHelper {
   }
 
   // DICCIONARIO COMPLETO NORMALIZADO (RV1960 / NBLA)
-  static const Map<String, int> _diccionarioLibros = {
-    'genesis': 1, 'génesis': 1, 'gen': 1, 'gn': 1, 'exodo': 2, 'éxodo': 2, 'exo': 2, 'ex': 2,
-    'levitico': 3, 'levítico': 3, 'lev': 3, 'lv': 3, 'numeros': 4, 'números': 4, 'num': 4, 'nm': 4,
-    'deuteronomio': 5, 'deu': 5, 'dt': 5, 'josue': 6, 'josué': 6, 'jos': 6, 'jueces': 7, 'jue': 7,
-    'rut': 8, 'rt': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
-    '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
-    'nehemias': 16, 'neh': 16, 'ester': 17, 'est': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
-    'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
-    'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
-    'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
-    'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
-    'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
-    'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
-    '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
-    'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
-    '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
-    'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
-    '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
-  };
+  // static const Map<String, int> _diccionarioLibros = {
+  //   'genesis': 1, 'génesis': 1, 'gen': 1, 'gn': 1, 'exodo': 2, 'éxodo': 2, 'exo': 2, 'ex': 2,
+  //   'levitico': 3, 'levítico': 3, 'lev': 3, 'lv': 3, 'numeros': 4, 'números': 4, 'num': 4, 'nm': 4,
+  //   'deuteronomio': 5, 'deu': 5, 'dt': 5, 'josue': 6, 'josué': 6, 'jos': 6, 'jueces': 7, 'jue': 7,
+  //   'rut': 8, 'rt': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
+  //   '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
+  //   'nehemias': 16, 'neh': 16, 'ester': 17, 'est': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
+  //   'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
+  //   'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
+  //   'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
+  //   'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
+  //   'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
+  //   'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
+  //   '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
+  //   'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
+  //   '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
+  //   'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
+  //   '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
+  // };
 
   static const Map<int, String> _nombresLibros = {
     1: 'Génesis', 2: 'Éxodo', 3: 'Levítico', 4: 'Números', 5: 'Deuteronomio', 6: 'Josué', 7: 'Jueces',
@@ -109,8 +109,41 @@ class BibliaDatabaseHelper {
     63: '2 Juan', 64: '3 Juan', 65: 'Judas', 66: 'Apocalipsis'
   };
 
-  int obtenerLibroId(String nombreLibro) => _diccionarioLibros[nombreLibro.toLowerCase().trim()] ?? 43;
+  // int obtenerLibroId(String nombreLibro) => _diccionarioLibros[nombreLibro.toLowerCase().trim()] ?? 43;
   String obtenerNombreLibro(int libroId) => _nombresLibros[libroId] ?? 'Libro $libroId';
+  String _removerAcentostildes(String texto) {
+    var conAcento = 'áéíóúÁÉÍÓÚñÑ';
+    var sinAcento = 'aeiouAEIOUnN';
+    String resultado = texto;
+    for (int i = 0; i < conAcento.length; i++) {
+      resultado = resultado.replaceAll(conAcento[i], sinAcento[i]);
+    }
+    return resultado.toLowerCase().trim();
+  }
+  int obtenerLibroId(String nombreLibro) {
+    final String nombreSanitizado = _removerAcentostildes(nombreLibro);
+    
+    // Diccionario extendido con variaciones sanitizadas sin acentos
+    final Map<String, int> diccionarioTildesSeguro = {
+      'genesis': 1, 'exodo': 2, 'levitico': 3, 'numeros': 4, 'deuteronomio': 5, 'josue': 6, 'jueces': 7,
+      'rut': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
+      '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
+      'nehemias': 16, 'ester': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
+      'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
+      'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
+      'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
+      'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
+      'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
+      'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
+      '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
+      'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
+      '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
+      'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
+      '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
+    };
+
+    return diccionarioTildesSeguro[nombreSanitizado] ?? 0;
+  }
 
   // 🚀 LECTURA DE CAPÍTULO HÍBRIDO (Inmune a caídas Web y Móvil)
   // 🚀 LECTURA DE CAPÍTULO CON CACHÉ DE ESCRITURA CORREGIDA
@@ -319,14 +352,13 @@ class BibliaDatabaseHelper {
     // 🚀 BUSCADOR GLOBAL HÍBRIDO CON MIGRACIÓN DINÁMICA A TEXTO PLANO LOCAL
   Future<List<Map<String, dynamic>>> buscarPalabraClaveGlobal(String consulta) async {
     if (consulta.trim().isEmpty) return [];
-    final String terminoLimpio = consulta.trim().toLowerCase();
-    
-    // Separamos los términos individuales para simular un operador AND de búsqueda
-    final List<String> palabrasClave = terminoLimpio.split(' ').where((w) => w.length > 2).toList();
+
+    // Sanitizamos el término de búsqueda ingresado por el pastor
+    final String terminoSanitizado = _removerAcentostildes(consulta);
+    final List<String> palabrasClave = terminoSanitizado.split(' ').where((w) => w.length > 2).toList();
     if (palabrasClave.isEmpty) return [];
 
     try {
-      // 1. INTENTO EN LA NUBE: Motor FTS nativo de Supabase de alta velocidad
       final terminosFts = consulta.trim().split(' ').join(' & ');
       final response = await _client
           .from('versiculos')
@@ -336,33 +368,52 @@ class BibliaDatabaseHelper {
           .timeout(const Duration(milliseconds: 1800)); 
 
       final resultadoNube = List<Map<String, dynamic>>.from(response);
+      if (resultadoNube.isNotEmpty) return resultadoNube;
+    } catch (_) {}
+    // final String terminoLimpio = consulta.trim().toLowerCase();
+    
+    // // Separamos los términos individuales para simular un operador AND de búsqueda
+    // final List<String> palabrasClave = terminoLimpio.split(' ').where((w) => w.length > 2).toList();
+    // if (palabrasClave.isEmpty) return [];
 
-      if (resultadoNube.isNotEmpty) {
-        if (!kIsWeb) {
-          final db = await databaseLocal;
-          if (db != null) {
-            final loteBatch = db.batch();
-            for (var v in resultadoNube) {
-              loteBatch.insert(
-                'cache_busquedas',
-                {
-                  'termino_busqueda': terminoLimpio,
-                  'libro_id': v['libro_id'],
-                  'capitulo': v['capitulo'],
-                  'versiculo': v['versiculo'],
-                  'texto': v['texto'],
-                },
-                conflictAlgorithm: sql.ConflictAlgorithm.replace,
-              );
-            }
-            await loteBatch.commit(noResult: true);
-          }
-        }
-        return resultadoNube;
-      }
-    } catch (e) {
-      print('Buscador remoto fuera de servicio. Inicializando escaneo secuencial... $e');
-    }
+    // try {
+    //   // 1. INTENTO EN LA NUBE: Motor FTS nativo de Supabase de alta velocidad
+    //   final terminosFts = consulta.trim().split(' ').join(' & ');
+    //   final response = await _client
+    //       .from('versiculos')
+    //       .select('libro_id, capitulo, versiculo, texto')
+    //       .textSearch('fts_vector', terminosFts, config: 'spanish')
+    //       .limit(50)
+    //       .timeout(const Duration(milliseconds: 1800)); 
+
+    //   final resultadoNube = List<Map<String, dynamic>>.from(response);
+
+    //   if (resultadoNube.isNotEmpty) {
+    //     if (!kIsWeb) {
+    //       final db = await databaseLocal;
+    //       if (db != null) {
+    //         final loteBatch = db.batch();
+    //         for (var v in resultadoNube) {
+    //           loteBatch.insert(
+    //             'cache_busquedas',
+    //             {
+    //               'termino_busqueda': terminoLimpio,
+    //               'libro_id': v['libro_id'],
+    //               'capitulo': v['capitulo'],
+    //               'versiculo': v['versiculo'],
+    //               'texto': v['texto'],
+    //             },
+    //             conflictAlgorithm: sql.ConflictAlgorithm.replace,
+    //           );
+    //         }
+    //         await loteBatch.commit(noResult: true);
+    //       }
+    //     }
+    //     return resultadoNube;
+    //   }
+    // } catch (e) {
+    //   print('Buscador remoto fuera de servicio. Inicializando escaneo secuencial... $e');
+    // }
 
     // 2. INTENTO EN CACHÉ SQLITE: Si ya existía una búsqueda idéntica previa (Solo Móvil)
     if (!kIsWeb) {
@@ -371,7 +422,7 @@ class BibliaDatabaseHelper {
         final resultadoLocal = await db.query(
           'cache_busquedas',
           where: 'termino_busqueda = ?',
-          whereArgs: [terminoLimpio],
+          whereArgs: [terminoSanitizado],
           limit: 50,
         );
         if (resultadoLocal.isNotEmpty) {
@@ -380,39 +431,35 @@ class BibliaDatabaseHelper {
       }
     }
 
-    // 3. CONTINGENCIA TOTAL COSTO $0: Escaneo relacional directo desde el HTML de tu archivo JSON
-    // Este algoritmo lee recursivamente tus JSONs para encontrar todas las ocurrencias en milisegundos
     try {
-      // Cargamos por defecto la versión Reina-Valera 1960 para la búsqueda fuera de línea
       final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/rv1960.json');
       final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
       final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
-
       List<Map<String, dynamic>> resultadosFiltradosJson = [];
-      // Recorremos los 66 libros canónicos de la Biblia guardados localmente
+
       for (int i = 0; i < librosJson.length; i++) {
         final Map<String, dynamic> libroMap = librosJson[i];
         final int libroId = i + 1;
         final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
 
-        // Dentro de buscarPalabraClaveGlobal -> Bucle de contingencia JSON
         for (var capituloData in capitulosJson) {
           final int numCapitulo = capituloData['chapter_number'] ?? 1;
-          final List<dynamic> itemsBuscador = capituloData['items'] ?? [];
+          final List<dynamic> itemsVersiculos = capituloData['items'] ?? [];
 
-          for (var item in itemsBuscador) {
+          for (var item in itemsVersiculos) {
             if (item['type'] == 'verse') {
               final int numVerso = (item['verse_numbers'] as List).first;
               String textoLimpio = (item['lines'] as List).join(' ').trim();
               
-              // Descodificador de acentos
+              // Descodificador de acentos HTML decimales
               textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) => String.fromCharCode(int.parse(m.group(1)!)));
               
-              final String textoMinuscula = textoLimpio.toLowerCase();
-              bool cumpleFiltros = true;
+              // 🚀 CLAVE DE LA BÚSQUEDA INSENSIBLE: Comparamos quitando acentos a ambos lados
+              final String textoEvaluar = _removerAcentostildes(textoLimpio);
               
+              bool cumpleFiltros = true;
               for (var palabra in palabrasClave) {
-                if (!textoMinuscula.contains(palabra)) { cumpleFiltros = false; break; }
+                if (!textoEvaluar.contains(palabra)) { cumpleFiltros = false; break; }
               }
 
               if (cumpleFiltros) {
@@ -429,12 +476,65 @@ class BibliaDatabaseHelper {
         }
       }
       return resultadosFiltradosJson;
-    } catch (errJson) {
-      print('Fallo crítico en el mapeador analítico de búsqueda JSON: $errJson');
-    }
-
+    } catch (_) {}
     return [];
   }
+
+    // 3. CONTINGENCIA TOTAL COSTO $0: Escaneo relacional directo desde el HTML de tu archivo JSON
+    // Este algoritmo lee recursivamente tus JSONs para encontrar todas las ocurrencias en milisegundos
+    // try {
+    //   // Cargamos por defecto la versión Reina-Valera 1960 para la búsqueda fuera de línea
+    //   final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/rv1960.json');
+    //   final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
+    //   final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
+
+    //   List<Map<String, dynamic>> resultadosFiltradosJson = [];
+    //   // Recorremos los 66 libros canónicos de la Biblia guardados localmente
+    //   for (int i = 0; i < librosJson.length; i++) {
+    //     final Map<String, dynamic> libroMap = librosJson[i];
+    //     final int libroId = i + 1;
+    //     final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
+
+    //     // Dentro de buscarPalabraClaveGlobal -> Bucle de contingencia JSON
+    //     for (var capituloData in capitulosJson) {
+    //       final int numCapitulo = capituloData['chapter_number'] ?? 1;
+    //       final List<dynamic> itemsBuscador = capituloData['items'] ?? [];
+
+    //       for (var item in itemsBuscador) {
+    //         if (item['type'] == 'verse') {
+    //           final int numVerso = (item['verse_numbers'] as List).first;
+    //           String textoLimpio = (item['lines'] as List).join(' ').trim();
+              
+    //           // Descodificador de acentos
+    //           textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) => String.fromCharCode(int.parse(m.group(1)!)));
+              
+    //           final String textoMinuscula = textoLimpio.toLowerCase();
+    //           bool cumpleFiltros = true;
+              
+    //           for (var palabra in palabrasClave) {
+    //             if (!textoMinuscula.contains(palabra)) { cumpleFiltros = false; break; }
+    //           }
+
+    //           if (cumpleFiltros) {
+    //             resultadosFiltradosJson.add({
+    //               'libro_id': libroId,
+    //               'capitulo': numCapitulo,
+    //               'versiculo': numVerso,
+    //               'texto': textoLimpio,
+    //             });
+    //             if (resultadosFiltradosJson.length >= 50) return resultadosFiltradosJson;
+    //           }
+    //         }
+    //       }
+  //       }
+  //     }
+  //     return resultadosFiltradosJson;
+  //   } catch (errJson) {
+  //     print('Fallo crítico en el mapeador analítico de búsqueda JSON: $errJson');
+  //   }
+
+  //   return [];
+  // }
 
   // 🚀 CORRECCIÓN DEFINITIVA: Forzado el tipado estricto <int> en la conversión del mapeo de Supabase
   Future<Set<int>> obtenerVersiculosConReferenciasEnCapitulo(int libroId, int capitulo) async {
