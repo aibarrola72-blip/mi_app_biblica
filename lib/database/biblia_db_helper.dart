@@ -412,6 +412,10 @@ class BibliaDatabaseHelper {
                 .replaceAll(RegExp(r'<[^>]*>'), '') // Limpieza de tags HTML internos
                 .replaceAll(r"\'", "'")
                 .trim();
+              // Inyectamos el convertidor aquí para limpiar los acentos
+            textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
+            return String.fromCharCode(int.parse(m.group(1)!));
+            });
 
             final String textoMinuscula = textoLimpio.toLowerCase();
 
