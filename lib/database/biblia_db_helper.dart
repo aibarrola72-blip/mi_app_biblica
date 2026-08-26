@@ -179,7 +179,7 @@ class BibliaDatabaseHelper {
       }
     }
 
-    // 2. CONTINGENCIA ABSOLUTA COSTO $0: Extraer datos directamente desde el HTML de tus archivos JSON
+        // 2. CONTINGENCIA ABSOLUTA COSTO $0: Extraer y consolidar desde el nodo limpio "items" del JSON
     try {
       final Map<String, String> mapeoArchivosJson = {
         'RV1960': 'rv1960', 'NVI': 'nvi128', 'RVC': 'rvc', 'RVA2015': 'rva2015',
@@ -189,8 +189,8 @@ class BibliaDatabaseHelper {
 
       final String nombreArchivo = mapeoArchivosJson[versionId] ?? 'rv1960';
       final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/$nombreArchivo.json');
-      final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
-      final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
+      final Map<String, dynamic> objetoCampana = jsonDecode(contenidoJsonCrudo);
+      final List<dynamic> librosJson = objetoCampana['books'] ?? [];
 
       if (librosJson.length >= libroId) {
         final Map<String, dynamic> libroMap = librosJson[libroId - 1];
@@ -198,47 +198,47 @@ class BibliaDatabaseHelper {
 
         if (capitulosJson.length >= capitulo) {
           final Map<String, dynamic> capituloMap = capitulosJson[capitulo - 1];
-          final String htmlContenido = capituloMap['chapter_html'] ?? '';
           
+          // 🚀 CAMBIO CRÍTICO: Apuntamos al arreglo estructurado "items" en lugar de "chapter_html"
+          final List<dynamic> itemsVersiculos = capituloMap['items'] ?? [];
           List<Map<String, dynamic>> textosOfflineJson = [];
 
-          // Expresión regular adaptada al formato html de bible-data-es-spa
-          final RegExp regExpVersoHtml = RegExp(
-            r'class="verse\s+v([0-9]+)"[^>]*>.*?<span class="content">(.*?)<\/span>',
-            dotAll: true,
-          );
+          for (var item in itemsVersiculos) {
+            // Ignoramos los títulos de los bloques (heading1) y procesamos solo los versículos
+            if (item['type'] == 'verse') {
+              final List<dynamic> numerosVerso = item['verse_numbers'] ?? [];
+              final List<dynamic> lineasTexto = item['lines'] ?? [];
 
-          final matches = regExpVersoHtml.allMatches(htmlContenido);
-          
-          for (var match in matches) {
-            final int numVerso = int.parse(match.group(1)!);
-            String textoLimpio = match.group(2)!
-                .replaceAll(RegExp(r'<[^>]*>'), '') // Elimina etiquetas de notas internas o llamadas (#)
-                .replaceAll(r"\'", "'")
-                .trim();
-            // Inyectamos el convertidor aquí para limpiar los acentos
-            textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
-            return String.fromCharCode(int.parse(m.group(1)!));
-            });
+              if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
+                final int numVersiculoReal = numerosVerso.first as int;
+                
+                // Unificamos las líneas de texto del versículo en un solo String limpio
+                String textoUnificado = lineasTexto.join(' ').trim();
 
-            if (textoLimpio.isNotEmpty) {
-              textosOfflineJson.add({
-                'libro_id': libroId,
-                'capitulo': capitulo,
-                'versiculo': numVerso,
-                'texto': textoLimpio,
-                'version_id': versionId,
-              });
+                // Aplicamos el descodificador matemático de acentos y tildes decimales
+                textoUnificado = textoUnificado.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
+                  return String.fromCharCode(int.parse(m.group(1)!));
+                });
+
+                textosOfflineJson.add({
+                  'libro_id': libroId,
+                  'capitulo': capitulo,
+                  'versiculo': numVersiculoReal,
+                  'texto': textoUnificado.replaceAll(RegExp(r'\s+'), ' '), // Sanitiza espacios dobles
+                  'version_id': versionId,
+                });
+              }
             }
           }
+
           if (textosOfflineJson.isNotEmpty) {
             _cacheCapitulos[llaveCache] = textosOfflineJson;
             return textosOfflineJson;
           }
         }
       }
-    } catch (errJson) {
-      print('Fallo crítico en la lectura de contingencia física de JSONs locales: $errJson');
+    } catch (e) {
+      print('Fallo crítico al mapear el nodo items del archivo bíblico JSON: $e');
     }
 
     return []; 
@@ -389,56 +389,40 @@ class BibliaDatabaseHelper {
       final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
 
       List<Map<String, dynamic>> resultadosFiltradosJson = [];
-      final RegExp regExpVersoHtml = RegExp(
-        r'class="verse\s+v([0-9]+)"[^>]*>.*?<span class="content">(.*?)<\/span>',
-        dotAll: true,
-      );
-
       // Recorremos los 66 libros canónicos de la Biblia guardados localmente
       for (int i = 0; i < librosJson.length; i++) {
         final Map<String, dynamic> libroMap = librosJson[i];
         final int libroId = i + 1;
         final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
 
+        // Dentro de buscarPalabraClaveGlobal -> Bucle de contingencia JSON
         for (var capituloData in capitulosJson) {
           final int numCapitulo = capituloData['chapter_number'] ?? 1;
-          final String htmlContenido = capituloData['chapter_html'] ?? '';
+          final List<dynamic> itemsBuscador = capituloData['items'] ?? [];
 
-          final matches = regExpVersoHtml.allMatches(htmlContenido);
-
-          for (var match in matches) {
-            final int numVerso = int.parse(match.group(1)!);
-            String textoLimpio = match.group(2)!
-                .replaceAll(RegExp(r'<[^>]*>'), '') // Limpieza de tags HTML internos
-                .replaceAll(r"\'", "'")
-                .trim();
-              // Inyectamos el convertidor aquí para limpiar los acentos
-            textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
-            return String.fromCharCode(int.parse(m.group(1)!));
-            });
-
-            final String textoMinuscula = textoLimpio.toLowerCase();
-
-            // Validación cruzada AND: Verifica que TODAS las palabras clave estén en el versículo
-            bool cumpleFiltros = true;
-            for (var palabra in palabrasClave) {
-              if (!textoMinuscula.contains(palabra)) {
-                cumpleFiltros = false;
-                break;
+          for (var item in itemsBuscador) {
+            if (item['type'] == 'verse') {
+              final int numVerso = (item['verse_numbers'] as List).first;
+              String textoLimpio = (item['lines'] as List).join(' ').trim();
+              
+              // Descodificador de acentos
+              textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) => String.fromCharCode(int.parse(m.group(1)!)));
+              
+              final String textoMinuscula = textoLimpio.toLowerCase();
+              bool cumpleFiltros = true;
+              
+              for (var palabra in palabrasClave) {
+                if (!textoMinuscula.contains(palabra)) { cumpleFiltros = false; break; }
               }
-            }
 
-            if (cumpleFiltros) {
-              resultadosFiltradosJson.add({
-                'libro_id': libroId,
-                'capitulo': numCapitulo,
-                'versiculo': numVerso,
-                'texto': textoLimpio,
-              });
-
-              // Break de seguridad para no congelar la UI si hay demasiados resultados
-              if (resultadosFiltradosJson.length >= 50) {
-                return resultadosFiltradosJson;
+              if (cumpleFiltros) {
+                resultadosFiltradosJson.add({
+                  'libro_id': libroId,
+                  'capitulo': numCapitulo,
+                  'versiculo': numVerso,
+                  'texto': textoLimpio,
+                });
+                if (resultadosFiltradosJson.length >= 50) return resultadosFiltradosJson;
               }
             }
           }
