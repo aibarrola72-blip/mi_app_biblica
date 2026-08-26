@@ -7,9 +7,9 @@ void main() async {
   
   // Inicializamos Supabase de forma nativa en consola
   final supabase = await Supabase.initialize(
-    url: 'TU_SUPABASE_URL',
+    url: 'https://qvbojzmtdbrrahtewrrr.supabase.co/rest/v1/',
     // IMPORTANTE: Usa la 'service_role key' (secret) para inserciones masivas veloces
-    anonKey: 'TU_SUPABASE_SERVICE_ROLE_KEY', 
+    anonKey: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG', 
   );
   final cliente = supabase.client;
 
