@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class PanelAjustesView extends StatefulWidget {
   final AjustesConfig ajustes;
@@ -64,6 +66,127 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
             ],
           ),
           const SizedBox(height: 10),
+
+          // 🚀 INYECTOR ADAPTADO: Lee, extrae las notas x del HTML de rv1960 y las sube a la nube
+          ListTile(
+            leading: const Icon(Icons.hub_rounded, color: Colors.purpleAccent),
+            title: const Text(
+              'MIGRAR REFERENCIAS DESDE RV1960.JSON', 
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.purpleAccent),
+            ),
+            subtitle: const Text('Escanea las etiquetas de notas del HTML local y las inyecta en Supabase.'),
+            onTap: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+
+              try {
+                final supabase = Supabase.instance.client;
+                final dbHelper = BibliaDatabaseHelper();
+
+                // 1. Cargamos el archivo JSON real de tu app en la notebook
+                final String contenidoJsonCrudo = await DefaultAssetBundle.of(context)
+                    .loadString('assets/biblias/rv1960.json');
+                
+                final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
+                final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
+
+                List<Map<String, dynamic>> loteReferencias = [];
+                int contadorTotal = 0;
+
+                // Expresiones regulares para capturar el versículo actual y aislar sus notas cruzadas
+                final RegExp regExpVersiculoBlock = RegExp(r'class="verse\s+v([0-9]+)"[^>]*>(.*?)<\/span>\s*<\/span>', dotAll: true);
+                final RegExp regExpNotaCruzada = RegExp(r'class="body">(.*?)<\/span>', dotAll: true);
+
+                // 2. Recorremos los libros y capítulos canónicos del archivo
+                for (int i = 0; i < librosJson.length; i++) {
+                  final int origenLibroId = i + 1;
+                  final List<dynamic> capitulosJson = librosJson[i]['chapters'] ?? [];
+
+                  for (var capData in capitulosJson) {
+                    final int origenCapitulo = capData['chapter_number'] ?? 1;
+                    final String htmlContenido = capData['chapter_html'] ?? '';
+
+                    // Buscamos todos los bloques de versículos en el HTML
+                    final matchesVersos = regExpVersiculoBlock.allMatches(htmlContenido);
+                    
+                    for (var matchV in matchesVersos) {
+                      final int origenVersiculo = int.parse(matchV.group(1)!);
+                      final String bloqueInternoHtml = matchV.group(2)!;
+
+                      // Si el bloque de este versículo contiene una nota de referencia cruzada (#)
+                      if (bloqueInternoHtml.contains('class="note x"')) {
+                        final matchesNotas = regExpNotaCruzada.allMatches(bloqueInternoHtml);
+                        
+                        for (var matchN in matchesNotas) {
+                          // Texto crudo de la nota (Ej: "2 Co. 4.6." o "Mt. 19.4; Mr. 10.6.")
+                          String textoNotaRaw = matchN.group(1)!
+                              .replaceAll(RegExp(r'<[^>]*>'), '') // Limpieza de tags
+                              .trim();
+
+                          // Separamos por punto y coma por si vienen múltiples citas en la misma nota
+                          List<String> citasIndividuales = textoNotaRaw.split(';');
+
+                          for (var cita in citasIndividuales) {
+                            // Limpiamos la cita individual (Ej: "2 Co. 4.6")
+                            String citaLimpia = cita.replaceAll(RegExp(r'\.$'), '').trim();
+                            
+                            // Analizamos la nomenclatura para extraer libro, capítulo y versículo de destino
+                            final RegExp regexParseo = RegExp(r'([1-3]?\s?[A-Za-z\s\.]+)\s+([0-9]+)\.([0-9]+)');
+                            final matchParseo = regexParseo.firstMatch(citaLimpia);
+
+                            if (matchParseo != null) {
+                              String nombreLibroDestino = matchParseo.group(1)!.trim().replaceAll('.', '');
+                              int destCap = int.parse(matchParseo.group(2)!);
+                              int destVer = int.parse(matchParseo.group(3)!);
+
+                              // Traducimos la abreviatura del libro a su ID numérico correspondiente
+                              int destinoLibroId = dbHelper.obtenerLibroId(nombreLibroDestino);
+
+                              loteReferencias.add({
+                                'origen_libro_id': origenLibroId,
+                                'origen_capitulo': origenCapitulo,
+                                'origen_versiculo': origenVersiculo,
+                                'destino_libro_id': destinoLibroId,
+                                'destino_capitulo': destCap,
+                                'destino_versiculo': destVer,
+                              });
+
+                              contadorTotal++;
+
+                              // Subida controlada en lotes de 2000 filas para evitar caídas por timeout
+                              if (loteReferencias.length >= 2000) {
+                                await supabase.from('referencias_cruzadas').insert(loteReferencias);
+                                print('📤 Sincronizados $contadorTotal registros relacionales con la nube...');
+                                loteReferencias.clear();
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // Enviamos el remanente final de datos
+                if (loteReferencias.isNotEmpty) {
+                  await supabase.from('referencias_cruzadas').insert(loteReferencias);
+                }
+
+                if (context.mounted) {
+                  Navigator.pop(context); // Cierra el indicador de carga
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('🎉 ¡Sincronizadas $contadorTotal referencias cruzadas con Supabase!'), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) Navigator.pop(context);
+                print('Error al procesar el HTML interno de rv1960: $e');
+              }
+            },
+          ),
 
           ListTile(
             leading: const Icon(Icons.cleaning_services_rounded, color: Colors.redAccent),
