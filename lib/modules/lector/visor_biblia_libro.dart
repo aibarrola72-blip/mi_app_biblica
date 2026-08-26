@@ -6,8 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/biblia_db_helper.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../../database/ajustes_config.dart';
-import '../../database/canal_eventos.dart';
-// import 'package:supabase_flutter/supabase_flutter.dart'; 
+import '../../database/canal_eventos.dart'; 
 import 'package:share_plus/share_plus.dart';
 
 class VisorBibliaLibro extends StatefulWidget {
@@ -349,16 +348,22 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       ),
       
       // Botones flotantes inferiores dinámicos (Aparecen solo en selección múltiple)
-      floatingActionButton: _modoSeleccionMultiple && _versiculosSeleccionados.isNotEmpty
-          ? Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // 🚀 NUEVO BOTÓN FLOTANTE: Compartir Bloque Completo en Redes/Mensajería
-                FloatingActionButton(
-                  heroTag: 'btn_compartir_lote',
-                  backgroundColor: Colors.teal,
-                  child: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () {
+      bottomNavigationBar: _modoSeleccionMultiple && _versiculosSeleccionados.isNotEmpty
+          ? Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            decoration: BoxDecoration(color: colorAppBarFondo,
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],),
+            child: SafeArea(
+              child: Wrap(
+                spacing: 10.0,runSpacing: 10.0,alignment: WrapAlignment.spaceEvenly,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [Text('${_versiculosSeleccionados.length} marcados',
+                style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 14),),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white, 
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  icon: const Icon(Icons.share, size: 18),label: const Text('Compartir', 
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),onPressed: () {
                     final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
                     final List<int> listaOrdenada = _versiculosSeleccionados.toList()..sort();
                     
@@ -383,17 +388,12 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   },
                 ),
                 
-                const SizedBox(width: 12),
-                
-                // 🚀 NUEVO BOTÓN FLOANTE: Enviar Rango de Bloque al Sermón
-                FloatingActionButton.extended(
-                  heroTag: 'btn_enviar_sermon_lote',
-                  backgroundColor: const Color(0xFF1A73E8), // Azul institucional
-                  icon: const Icon(Icons.send_and_archive, color: Colors.white),
-                  label: const Text(
-                    'Insertar en Sermón', 
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-                  ),
+                ElevatedButton.icon(style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A73E8), 
+                  foregroundColor: Colors.white, 
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  icon: const Icon(Icons.send_and_archive, size: 18),
+                  label: const Text('Insertar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   onPressed: () {
                     final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);                 
                     // Ordenamos matemáticamente el Set de versículos de menor a mayor
@@ -419,25 +419,22 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   },
                 ),
                 
-                const SizedBox(width: 12), // Espaciador limpio entre botones 
-
-                // Tu botón original de pintar (Le añadimos una heroTag única para evitar errores de navegación en Flutter)
-                FloatingActionButton.extended(
-                  heroTag: 'btn_pintar_lote',
-                  backgroundColor: Colors.green,
-                  icon: const Icon(Icons.color_lens, color: Colors.white),
-                  label: Text(
-                    'Pintar (${_versiculosSeleccionados.length})', 
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
-                  ),
+                ElevatedButton.icon(style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green, 
+                  foregroundColor: Colors.white, 
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
+                  icon: const Icon(Icons.color_lens, size: 18),
+                  label: const Text('Pintar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   onPressed: _mostrarPaletaColoresMultiple,
                 ),
               ],
-            )
+            ),
+          ),
+          )
+          :null,
             
             // 🚀 NUEVO FLOATING ACTION BUTTON: Aparece si el pastor saltó mediante un enlace 🔗
-          : _historialNavegacionRegreso.isNotEmpty 
-              ? FloatingActionButton.extended(
+          floatingActionButton: !_modoSeleccionMultiple && _historialNavegacionRegreso.isNotEmpty ? FloatingActionButton.extended(
                   heroTag: 'btn_regresar_historial_biblia',
                   backgroundColor: Colors.blueGrey.shade800,
                   icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white),
@@ -463,14 +460,17 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                    itemCount: _versiculos.length,
+                    // 🚀 MEJORA DE ACOPLAMIENTO: Colchón elástico inferior para liberar el último
+                    itemCount: _versiculos.length+1,
                     itemBuilder: (context, index) {
+                      if (index == _versiculos.length) {
+                        return const SizedBox(height: 80); // Colchón elástico inferior
+                      }
                       final v = _versiculos[index];
                       final numVerso = v['versiculo'] ?? 1;
                       final llaveResaltado = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numVerso';
                       final int? colorHex = _resaltadosLocales[llaveResaltado];
-                      final bool estaEnSeleccionTemporal = _versiculosSeleccionados.contains(numVerso);
-                      
+                      final bool estaEnSeleccionTemporal = _versiculosSeleccionados.contains(numVerso);                      
                       // 🚀 NUEVO: Evalúa si este versículo específico tiene enlaces mapeados
                       final bool tieneReferencia = _versiculosConReferenciasCargados.contains(numVerso);
 
@@ -802,7 +802,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   }
 
   // Cuadro de diálogo modal rápido para saltar directo a cualquier libro de la Biblia
-    void _mostrarSelectorLibroYCapitulo() {
+  void _mostrarSelectorLibroYCapitulo() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // Permite expandir el menú para ver cómodamente los libros
