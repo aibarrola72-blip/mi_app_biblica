@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../database/biblia_db_helper.dart'; // Tu manejador de persistencia
 import 'pantalla_inicio_view.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class SplashScreenView extends StatefulWidget {
   const SplashScreenView({super.key});
@@ -33,6 +34,12 @@ class _SplashScreenViewState extends State<SplashScreenView> {
     final int milisegundosInicio = DateTime.now().millisecondsSinceEpoch;
 
     try {
+      final dbHelper = BibliaDatabaseHelper();
+      if (kIsWeb) {
+      // 🚀 ENTORNO WEB: Inicialización rápida saltando SQLite
+      if (mounted) setState(() => _estadoCarga = "Cargando componentes web...");
+      dbHelper.obtenerMapaAbreviaturas();
+    } else {
       // 1. Despertar la base de datos SQLite local y forzar onCreate/onUpgrade si aplica
       if (mounted) setState(() => _estadoCarga = "Verificando base de datos offline...");
       final dbHelper = BibliaDatabaseHelper();
@@ -48,6 +55,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
       // 3. Calentar el diccionario estático de abreviaturas canónicas en la memoria RAM
       if (mounted) setState(() => _estadoCarga = "Estructurando mapas relacionales...");
       dbHelper.obtenerMapaAbreviaturas();
+    }
 
     } catch (e) {
       print('Aviso de contingencia silenciosa en precarga: $e');

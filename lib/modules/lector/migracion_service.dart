@@ -6,10 +6,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../database/biblia_db_helper.dart';
 import 'dart:async'; 
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class MigracionService {
   /// Método principal que corre en el hilo de la UI y gestiona la carga.
   static Future<int> migrarReferenciasCruzadas(BuildContext context) async {
+
+    if (kIsWeb) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('⚠️ La migración masiva de archivos locales por Isolates solo está disponible en dispositivos móviles.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    return 0;
+  }
     try {
       final supabase = Supabase.instance.client;
 
