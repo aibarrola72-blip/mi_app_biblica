@@ -1,13 +1,11 @@
 // lib/modules/lector/migracion_service.dart
 
 import 'package:flutter/material.dart';
-// import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'; // 🚀 REQUERIDO: Reemplaza a dart:isolate para compatibilidad Web
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../database/biblia_db_helper.dart';
-import 'dart:async'; // Para flujos asíncronos alternativos
-import 'dart:isolate'; // 🚀 ESTA LÍNEA RESUELVE EL ERROR DE COMPILACIÓN DEL ISOLATE
-
+import 'dart:async'; 
 
 class MigracionService {
   /// Método principal que corre en el hilo de la UI y gestiona la carga.
@@ -15,32 +13,33 @@ class MigracionService {
     try {
       final supabase = Supabase.instance.client;
 
-      // 1. Cargar el string crudo en el hilo principal (Flutter lo requiere así para los assets)
+      // 1. Cargar el string crudo en el hilo principal
       final String contenidoJsonCrudo = await DefaultAssetBundle.of(context)
           .loadString('assets/biblias/rv1960.json');
 
-      // 2. Obtener el mapa de abreviaturas estático para enviarlo al Isolate
+      // 2. Obtener el mapa de abreviaturas estático
       final Map<String, int> diccionarioTildesSeguro = BibliaDatabaseHelper().obtenerMapaAbreviaturas();
 
-      // 3. Crear el mapa de datos para pasar múltiples argumentos al Isolate
+      // 3. Crear el mapa de datos para pasar múltiples argumentos
       final Map<String, dynamic> datosIsolate = {
         'jsonCrudo': contenidoJsonCrudo,
         'diccionario': diccionarioTildesSeguro,
       };
 
-      // 4. 🚀 EJECUCIÓN EN ISOLATE: El parseo masivo ocurre en otro núcleo de la CPU
-      // Pasamos la función global '_procesarHtmlEnIsolate' que está afuera de la clase
-      final List<Map<String, dynamic>> todasLasReferencias = await Isolate.run(() {
-        return _procesarHtmlEnIsolate(datosIsolate);
-      });
+      // 4. 🚀 EJECUCIÓN COMPATIBLE CON WEB: 'compute' abstrae el Isolate de forma segura
+      // En Web se ejecuta de forma asíncrona sin romper el motor de Dart.
+      final List<Map<String, dynamic>> todasLasreferencias = await compute(
+        _procesarHtmlEnIsolate, 
+        datosIsolate
+      );
 
-      if (todasLasReferencias.isEmpty) return 0;
+      if (todasLasreferencias.isEmpty) return 0;
 
       // 5. Regresar al flujo principal para la subida controlada en lotes de 2000
       int contadorTotal = 0;
       List<Map<String, dynamic>> loteActual = [];
 
-      for (var referencia in todasLasReferencias) {
+      for (var referencia in todasLasreferencias) {
         loteActual.add(referencia);
         contadorTotal++;
 
@@ -64,8 +63,7 @@ class MigracionService {
 }
 
 /// 🎯 FUNCIÓN GLOBAL / TOP-LEVEL (Fuera de cualquier clase)
-/// Esto es estrictamente obligatorio en Dart para que Isolate.run compile
-/// y no intente capturar el contexto de la vista o elementos no serializables.
+/// Se mantiene idéntica, compatible tanto con Isolates nativos como con compute de Flutter.
 @pragma('vm:entry-point')
 List<Map<String, dynamic>> _procesarHtmlEnIsolate(Map<String, dynamic> datos) {
   final String jsonCrudo = datos['jsonCrudo'];
@@ -75,7 +73,6 @@ List<Map<String, dynamic>> _procesarHtmlEnIsolate(Map<String, dynamic> datos) {
   final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
   List<Map<String, dynamic>> referenciasExtraidas = [];
 
-  // Expresiones regulares adaptadas con precisión a tu formato HTML
   final RegExp regExpVersiculoBlock = RegExp(
     r'class=\\"verse\s+v([0-9]+)\\"[^>]*>(.*?)<\/span>\s*<\/span>', 
     dotAll: true
@@ -106,7 +103,6 @@ List<Map<String, dynamic>> _procesarHtmlEnIsolate(Map<String, dynamic> datos) {
             String textoNotaRaw = matchN.group(1)!;
             textoNotaRaw = textoNotaRaw.replaceAll(RegExp(r'<[^>]*>'), '').trim();
 
-            // Separar citas múltiples por libro (Ej: Mt. 19.4; Mr. 10.6.)
             List<String> segmentosPorLibro = textoNotaRaw.split(';');
 
             for (var segmento in segmentosPorLibro) {
@@ -118,7 +114,6 @@ List<Map<String, dynamic>> _procesarHtmlEnIsolate(Map<String, dynamic> datos) {
               String nombreLibroDestino = matchBase.group(1)!.trim();
               int destinoLibroId = diccionarioLibros[nombreLibroDestino] ?? 0;
 
-              // Buscar pares de números (Capítulo.Versículo) dentro del segmento de este libro
               final RegExp regexNumeros = RegExp(r'([0-9]+)\.([0-9]+)');
               final matchesNumeros = regexNumeros.allMatches(segmento);
 
