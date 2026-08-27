@@ -24,13 +24,14 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
   Timer? _debounceTimer;
 
   void _onTextoCambiado(String consulta) {
-    // Evitamos peticiones innecesarias si el usuario borra el texto
+    // Forzamos el redibujo inmediato del TextField para alternar el botón Clear reactivo
+    setState(() {});
+
     if (consulta.trim().length < 3) {
       setState(() => _resultados = []);
       return;
     }
 
-    // Patrón Debouncer: Espera 600ms antes de disparar la búsqueda en Supabase
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
       if (!mounted) return;
@@ -46,6 +47,49 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
     });
   }
 
+  /// 🎯 MOTOR DE RESALTADO DINÁMICO E INSENSIBLE A TILDES
+  List<TextSpan> _crearFragmentosResaltados(String textoOriginal, String terminoBusqueda) {
+    if (terminoBusqueda.isEmpty) return [TextSpan(text: textoOriginal)];
+
+    // Mapeador interno para interceptar variantes con o sin acento de forma bidireccional
+    String mapearRegExpIncentiva(String texto) {
+      return texto
+          .replaceAll(RegExp(r'[aáÁ]'), '[aáÁ]')
+          .replaceAll(RegExp(r'[eéÉ]'), '[eéÉ]')
+          .replaceAll(RegExp(r'[iíÍ]'), '[iíÍ]')
+          .replaceAll(RegExp(r'[oóÓ]'), '[oóÓ]')
+          .replaceAll(RegExp(r'[uúÚ]'), '[uúÚ]');
+    }
+
+    final String patronRegExp = mapearRegExpIncentiva(RegExp.escape(terminoBusqueda));
+    final RegExp regex = RegExp(patronRegExp, caseSensitive: false);
+    final List<TextSpan> fragmentos = [];
+    int indiceActual = 0;
+
+    for (final Match match in regex.allMatches(textoOriginal)) {
+      if (match.start > indiceActual) {
+        fragmentos.add(TextSpan(text: textoOriginal.substring(indiceActual, match.start)));
+      }
+      fragmentos.add(
+        TextSpan(
+          text: textoOriginal.substring(match.start, match.end),
+          style: TextStyle(
+            backgroundColor: Colors.yellow.shade300,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      );
+      indiceActual = match.end;
+    }
+
+    if (indiceActual < textoOriginal.length) {
+      fragmentos.add(TextSpan(text: textoOriginal.substring(indiceActual)));
+    }
+
+    return fragmentos;
+  }
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
@@ -55,20 +99,23 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
 
   @override
   Widget build(BuildContext context) {
+    final String terminoBuscado = _busquedaController.text.trim();
+
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Column(
         children: [
-          // Campo de texto de búsqueda optimizado
+          // Campo de texto de búsqueda optimizado con botón adaptativo Clear
           TextField(
             controller: _busquedaController,
             onChanged: _onTextoCambiado,
             decoration: InputDecoration(
               hintText: 'Buscar concepto (ej: "gracia amor")',
               prefixIcon: const Icon(Icons.search, color: Colors.blue),
+              // 🚀 ÍCONO CLEAR RECTIVO COMPARTIDO:
               suffixIcon: _busquedaController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                       onPressed: () {
                         _busquedaController.clear();
                         setState(() => _resultados = []);
@@ -78,11 +125,12 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
             ),
           ),
           const SizedBox(height: 10),
           
-          // Renderizado de estados y resultados
+          // Renderizado de estados y resultados con coincidencia de pintura fosforescente
           Expanded(
             child: _buscando
                 ? const Center(child: CircularProgressIndicator())
@@ -92,7 +140,7 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
                           _busquedaController.text.length < 3
                               ? 'Escribe al menos 3 letras para buscar...'
                               : 'No se encontraron versículos.',
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                         ),
                       )
                     : ListView.builder(
@@ -106,20 +154,30 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
 
                           return Card(
                             margin: const EdgeInsets.symmetric(vertical: 4),
+                            elevation: 0.5,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                            ),
                             child: ListTile(
                               title: Text(
                                 '$nombreLibro $cap:$ver',
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A73E8), fontSize: 13),
                               ),
+                              // 🚀 SUBTÍTULO ADAPTADO CON TEXTSPANS DE PINTURA MARCADORA:
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
-                                child: Text(v['texto'] ?? '', style: const TextStyle(color: Colors.black87)),
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(color: Colors.black87, fontSize: 14, fontFamily: 'serif', height: 1.4),
+                                    children: _crearFragmentosResaltados(v['texto'] ?? '', terminoBuscado),
+                                  ),
+                                ),
                               ),
                               onTap: () {
-                                final String nombreLibro = _dbHelper.obtenerNombreLibro(libroId);
-                                final String citaFormateada = '$nombreLibro $cap:$ver';
+                                final String nombreLibroCita = _dbHelper.obtenerNombreLibro(libroId);
+                                final String citaFormateada = '$nombreLibroCita $cap:$ver';
 
-                                // 🚀 INTERACCIÓN EXPANDIDA: Menú contextual rápido de decisión
                                 showModalBottomSheet(
                                   context: context,
                                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
@@ -134,27 +192,24 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
                                           const SizedBox(height: 12),
                                           Row(
                                             children: [
-                                              // Opción A: Mandar el texto/cita directo al editor Quill
                                               Expanded(
                                                 child: ElevatedButton.icon(
                                                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A73E8), foregroundColor: Colors.white),
                                                   icon: const Icon(Icons.rate_review_outlined),
                                                   label: const Text('Insertar en Sermón'),
                                                   onPressed: () {
-                                                    // Transmitimos por el canal de radio en segundo plano
                                                     CanalEventos().enviarCitaAlEditor(citaFormateada);
-                                                    Navigator.pop(context); // Cierra el modal
+                                                    Navigator.pop(context);
                                                   },
                                                 ),
                                               ),
                                               const SizedBox(width: 10),
-                                              // Opción B: Tu lógica original de saltar a la pantalla del lector
                                               Expanded(
                                                 child: OutlinedButton.icon(
                                                   icon: const Icon(Icons.menu_book),
                                                   label: const Text('Ir al Lector'),
                                                   onPressed: () {
-                                                    Navigator.pop(context); // Cierra el modal
+                                                    Navigator.pop(context);
                                                     widget.onPasajeSeleccionado(PasajeBiblico(
                                                       libroId: libroId,
                                                       capitulo: cap,

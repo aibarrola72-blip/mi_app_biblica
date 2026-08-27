@@ -4,18 +4,8 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'modules/bosquejos/vista_editor.dart'; // Importa el archivo del editor
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
 
-// void main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-
-//   // Inicialización de Supabase local en Docker
-//   await Supabase.initialize(
-//     url: 'http://192.168.0.149:55021', 
-//     anonKey: 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH', // Tu clave Publishable activa
-//   );
-
-//   runApp(const MiAppBiblica());
-// }
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -38,7 +28,7 @@ class MiAppBiblica extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bosquejos y Biblia',
+      title: 'Biblia Pastoral',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -58,24 +48,11 @@ class MiAppBiblica extends StatelessWidget {
         Locale('en'),
       ],
       
-      home: const PantallaPrincipalBase(),
+      home: const SplashScreenView(),
     );
   }
 }
 
-// class PantallaPrincipalBase extends StatelessWidget {
-//   const PantallaPrincipalBase({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Scaffold( 
-//       body: SafeArea(
-//         // CORREGIDO: Llama a la clase del editor que no requiere parámetros obligatorios
-//         child: VistaEditorBosquejo(), 
-//       ),
-//     );
-//   }
-// }
 // Busca esta clase al final de tu lib/main.dart y déjala exactamente así:
 class PantallaPrincipalBase extends StatelessWidget {
   const PantallaPrincipalBase({super.key});

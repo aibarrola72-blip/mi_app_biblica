@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:convert';
+// import 'package:supabase_flutter/supabase_flutter.dart';
+// import 'dart:convert';
 import 'migracion_service.dart';
 
 class PanelAjustesView extends StatefulWidget {

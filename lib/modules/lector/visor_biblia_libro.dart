@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../../database/ajustes_config.dart';
 import '../../database/canal_eventos.dart'; 
 import 'package:share_plus/share_plus.dart';
+import 'package:wakelock_plus/wakelock_plus.dart'; 
 
 class VisorBibliaLibro extends StatefulWidget {
   const VisorBibliaLibro({super.key});
@@ -35,14 +36,29 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   
   final Set<int> _versiculosSeleccionados = {};
   bool _modoSeleccionMultiple = false;
-  final AjustesConfig _ajustesGlobales = AjustesConfig();
+  // final AjustesConfig _ajustesGlobales = AjustesConfig();
+  late final AjustesConfig _ajustesGlobales;
 
   @override
   void initState() {
     super.initState();
+    _ajustesGlobales = AjustesConfig();
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() { if (mounted) setState(() {}); });
+    // if (_ajustesGlobales.modoOscuroLectura) { 
+    //       WakelockPlus.enable();
+    //     } else {
+    //       WakelockPlus.disable();
+    //     }
+    WakelockPlus.enable(); 
     _recuperarUltimoProgresoYTexto(); 
+  }
+
+  @override
+  void dispose() {
+    // 3. 🚀 LIBERA EL CONTROL DE LA PANTALLA AL SALIR PARA QUE EL CELULAR VUELVA A SU ESTADO NORMAL
+    WakelockPlus.disable(); 
+    super.dispose();
   }
 
   // 🚀 MOTOR DE PERSISTENCIA DE LECTURA (Guarda dónde se quedó el pastor)
@@ -313,37 +329,82 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
             },
           ),
           
-          DropdownButton<String>(
-            value: _versionSeleccionada,
-            dropdownColor: colorAppBarFondo, 
-            underline: const SizedBox(),
-            iconEnabledColor: esOscuro ? Colors.white : Colors.black87, 
-            style: TextStyle(
-              color: esOscuro ? Colors.white : Colors.black87, 
-              fontSize: 16, 
-              fontWeight: FontWeight.w500
-            ),
-            items: const [
-              DropdownMenuItem(value: 'RV1960', child: Text('RV1960 ')),
-              DropdownMenuItem(value: 'NVI', child: Text('NVI ')),
-              DropdownMenuItem(value: 'DHH', child: Text('DHH ')),
-              DropdownMenuItem(value: 'DHHS', child: Text('DHHS ')),
-              DropdownMenuItem(value: 'LBLA', child: Text('LBLA ')),
-              DropdownMenuItem(value: 'NBLA', child: Text('NBLA ')),
-              DropdownMenuItem(value: 'NTV', child: Text('NTV ')),
-              DropdownMenuItem(value: 'RVA2015', child: Text('RVA2015 ')),
-              DropdownMenuItem(value: 'RVC', child: Text('RVC ')),
-              DropdownMenuItem(value: 'TLA', child: Text('TLA ')),
-              DropdownMenuItem(value: 'TLAI', child: Text('TLAI ')),
-              DropdownMenuItem(value: 'NVIC', child: Text('NVIC ')),
-            ],
-            onChanged: (nuevaVersion) {
-              if (nuevaVersion != null) {
-                setState(() => _versionSeleccionada = nuevaVersion);
-                _cargarResaltadosYTexto();
+          IconButton(
+            icon: const Icon(Icons.text_fields_rounded, size: 20),
+            tooltip: 'Disminuir tamaño de letra',
+            onPressed: () {
+              if (_ajustesGlobales.tamanoLetra > 14.0) {
+                // Restamos 2 puntos a la fuente y guardamos el estado de forma permanente
+                _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra - 2.0);
               }
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.text_fields_rounded, size: 26),
+            tooltip: 'Aumentar tamaño de letra',
+            onPressed: () {
+              if (_ajustesGlobales.tamanoLetra < 30.0) {
+                // Sumamos 2 puntos a la fuente y guardamos el estado de forma permanente
+                _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra + 2.0);
+              }
+            },
+          ),
+
+          // Añade esto en las 'actions: []' de tu AppBar en visor_biblia_libro.dart
+          IconButton(
+            icon: const Icon(Icons.search_rounded, size: 24),
+            tooltip: 'Buscar palabra clave',
+            onPressed: _mostrarBuscadorGlobalFlotante, // Llamará a la interfaz que crearemos abajo
+          ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0),
+              decoration: BoxDecoration(
+                color: esOscuro ? Colors.grey.shade900 : const Color(0xFFF1F3F4),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: esOscuro ? Colors.grey.shade800 : Colors.black12,
+                  width: 1,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _versionSeleccionada,
+                  dropdownColor: colorAppBarFondo, 
+                  iconEnabledColor: esOscuro ? Colors.blue.shade300 : Colors.blue.shade700, 
+                  style: TextStyle(
+                    color: esOscuro ? Colors.white : Colors.black87, 
+                    fontSize: 15, 
+                    fontWeight: FontWeight.bold
+                  ),
+                  // 🚀 ÍCONOS INTEGRADOS EN CADA TRADUCCIÓN:
+                  items: [
+                    _construirItemConIcono('RV1960', esOscuro),
+                    _construirItemConIcono('NVI', esOscuro),
+                    _construirItemConIcono('DHH', esOscuro),
+                    _construirItemConIcono('DHHS', esOscuro),
+                    _construirItemConIcono('LBLA', esOscuro),
+                    _construirItemConIcono('NBLA', esOscuro),
+                    _construirItemConIcono('NTV', esOscuro),
+                    _construirItemConIcono('RVA2015', esOscuro),
+                    _construirItemConIcono('RVC', esOscuro),
+                    _construirItemConIcono('TLA', esOscuro),
+                    _construirItemConIcono('TLAI', esOscuro),
+                    _construirItemConIcono('NVIC', esOscuro),
+                  ],
+                  onChanged: (nuevaVersion) {
+                    if (nuevaVersion != null) {
+                      setState(() => _versionSeleccionada = nuevaVersion);
+                      _cargarResaltadosYTexto();
+                    }
+                  },
+                ),
+              ),
+            ),
+          ),
+
         ],
       ),
       
@@ -503,11 +564,18 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                 Expanded(
                                 child: RichText(
                                   text: TextSpan(
-                                    style: TextStyle(fontSize: 18, color: colorTextoBiblico, height: 1.5, fontFamily: 'serif'),
+                                    style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra, 
+                                    color: colorTextoBiblico, 
+                                    height: 1.45 + ((_ajustesGlobales.tamanoLetra - 14.0) * 0.0125), 
+                                    fontFamily: _ajustesGlobales.tipoLetra == 'monospace' 
+                                            ? 'monospace' 
+                                            : (_ajustesGlobales.tipoLetra == 'serif' ? 'serif' : 'sans-serif'),
+                                      ),
                                     children: [
                                       TextSpan(
                                         text: '$numVerso ', 
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A73E8), fontSize: 15)
+                                        style: TextStyle(fontWeight: FontWeight.bold, 
+                                        color: Color(0xFF1A73E8), fontSize: _ajustesGlobales.tamanoLetra -3)
                                       ),
                                       TextSpan(
                                         text: v['texto'] ?? '',
@@ -543,6 +611,202 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         ],
       ),
     );
+  }
+
+  void _mostrarBuscadorGlobalFlotante() {
+    final TextEditingController controladorBusqueda = TextEditingController();
+    List<Map<String, dynamic>> resultadosLocales = [];
+    bool buscando = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Permite expandirse de forma cómoda con el teclado en pantalla
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return StatefulBuilder( // Permite refrescar de forma aislada la lista de resultados sin redibujar toda la Biblia de fondo
+          builder: (BuildContext context, StateSetter modalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75, // Ocupa el 75% de la pantalla
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Buscador Global Concordancia',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Campo de Texto Estilizado con botón de disparo
+                  // Reemplaza el TextField dentro de '_mostrarBuscadorGlobalFlotante' por este bloque:
+                  TextField(
+                    controller: controladorBusqueda,
+                    autofocus: true,
+                    textInputAction: TextInputAction.search,
+                    // 🚀 ESCUCHADOR EN TIEMPO REAL: Fuerza al modal a redibujarse para alternar los íconos de borrar/enviar
+                    onChanged: (texto) {
+                      modalState(() {});
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Ej: "Espíritu Santo", "gracia", "fe"...',
+                      prefixIcon: const Icon(Icons.search),
+                      // 🚀 SÚFIX ICON ADAPTATIVO:
+                      suffixIcon: controladorBusqueda.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, color: Colors.grey),
+                              onPressed: () {
+                                controladorBusqueda.clear(); // Vacía el controlador de texto
+                                modalState(() {
+                                  resultadosLocales.clear(); // Limpia los resultados de la pantalla
+                                });
+                              },
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.arrow_circle_right_rounded, color: Color(0xFF1A73E8), size: 28),
+                              onPressed: () async {
+                                if (controladorBusqueda.text.trim().isEmpty) return;
+                                modalState(() => buscando = true);
+                                final datos = await _dbHelper.buscarPalabraClaveGlobal(controladorBusqueda.text);
+                                modalState(() {
+                                  resultadosLocales = datos;
+                                  buscando = false;
+                                });
+                              },
+                            ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onSubmitted: (val) async {
+                      if (val.trim().isEmpty) return;
+                      modalState(() => buscando = true);
+                      final datos = await _dbHelper.buscarPalabraClaveGlobal(val);
+                      modalState(() { resultadosLocales = datos; buscando = false; });
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  
+                  // Lista de Resultados Dinámica
+                  Expanded(
+                    child: buscando
+                        ? const Center(child: CircularProgressIndicator())
+                        : resultadosLocales.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Ingresa una palabra para buscar en toda la Biblia.',
+                                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                                ),
+                              )
+                            : // Reemplaza el ListView.builder dentro de '_mostrarBuscadorGlobalFlotante' por este bloque:
+                              ListView.builder(
+                                itemCount: resultadosLocales.length,
+                                itemBuilder: (context, index) {
+                                  final res = resultadosLocales[index];
+                                  final int libroId = res['libro_id'];
+                                  final int capNum = res['capitulo'];
+                                  final int verNum = res['versiculo'];
+                                  final String textoVerso = res['texto'] ?? '';
+                                  final String nombreLibro = _dbHelper.obtenerNombreLibro(libroId);
+                                  
+                                  // Obtenemos el término crudo que escribió el usuario para segmentar el texto
+                                  final String terminoBuscado = controladorBusqueda.text.trim();
+
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                                    title: Padding(
+                                      padding: const EdgeInsets.only(bottom: 4.0),
+                                      child: Text(
+                                        '$nombreLibro $capNum:$verNum',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold, 
+                                          color: Color(0xFF1A73E8), 
+                                          fontSize: 13, 
+                                          fontFamily: 'sans-serif'
+                                        ),
+                                      ),
+                                    ),
+                                    subtitle: RichText(
+                                      text: TextSpan(
+                                        style: const TextStyle(
+                                          color: Colors.black87, 
+                                          fontSize: 14, 
+                                          fontFamily: 'serif', 
+                                          height: 1.4
+                                        ),
+                                        // 🚀 LLAMADA AL MOTOR DE RESALTADO DINÁMICO INSENSIBLE:
+                                        children: _crearFragmentosResaltados(textoVerso, terminoBuscado),
+                                      ),
+                                    ),
+                                    shape: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                    onTap: () {
+                                      Navigator.pop(context);
+                                      _histOriginalRegresoAlSaltar();
+                                      setState(() {
+                                        _libroSeleccionado = libroId;
+                                        _capituloSeleccionado = capNum;
+                                      });
+                                      _cargarResaltadosYTexto();
+                                    },
+                                  );
+                                },
+                              )
+                  ),
+                ],
+              ),
+            );
+          }
+        );
+      },
+    );
+  }
+
+  List<TextSpan> _crearFragmentosResaltados(String textoOriginal, String terminoBusqueda) {
+  if (terminoBusqueda.isEmpty) return [TextSpan(text: textoOriginal)];
+
+  // Función helper interna para mapear letras a sus variantes con tildes en RegExp
+  String mapearRegExpIncentiva(String texto) {
+      return texto
+          .replaceAll(RegExp(r'[aáÁ]'), '[aáÁ]')
+          .replaceAll(RegExp(r'[eéÉ]'), '[eéÉ]')
+          .replaceAll(RegExp(r'[iíÍ]'), '[iíÍ]')
+          .replaceAll(RegExp(r'[oóÓ]'), '[oóÓ]')
+          .replaceAll(RegExp(r'[uúÚ]'), '[uúÚ]');
+    }
+
+    final String patronRegExp = mapearRegExpIncentiva(RegExp.escape(terminoBusqueda));
+    final RegExp regex = RegExp(patronRegExp, caseSensitive: false);
+    final List<TextSpan> fragmentos = [];
+    
+    int indiceActual = 0;
+
+    // Recorremos todas las coincidencias encontradas por la RegExp en el versículo
+    for (final Match match in regex.allMatches(textoOriginal)) {
+      // 1. Añadimos el texto previo que no coincide
+      if (match.start > indiceActual) {
+        fragmentos.add(TextSpan(text: textoOriginal.substring(indiceActual, match.start)));
+      }
+      
+      // 2. Añadimos el término exacto encontrado con fondo amarillo fosforescente
+      fragmentos.add(
+        TextSpan(
+          text: textoOriginal.substring(match.start, match.end),
+          style: TextStyle(
+            backgroundColor: Colors.yellow.shade300,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      );
+      
+      indiceActual = match.end;
+    }
+
+    // 3. Añadimos el remanente del versículo si quedó algo
+    if (indiceActual < textoOriginal.length) {
+      fragmentos.add(TextSpan(text: textoOriginal.substring(indiceActual)));
+    }
+
+    return fragmentos;
   }
 
   // MODO INDIVIDUAL: Pinta un solo texto
@@ -914,4 +1178,22 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       },
     );
   }
+  DropdownMenuItem<String> _construirItemConIcono(String version, bool modoOscuro) {
+    return DropdownMenuItem<String>(
+      value: version,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.book_rounded, 
+            size: 16, 
+            color: modoOscuro ? Colors.blue.shade300 : Colors.blue.shade700
+          ),
+          const SizedBox(width: 8),
+          Text(version),
+        ],
+      ),
+    );
+  }
+
 }    
