@@ -5,6 +5,7 @@ import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'migracion_service.dart';
 
 class PanelAjustesView extends StatefulWidget {
   final AjustesConfig ajustes;
@@ -125,7 +126,7 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                               'MIGRAR REFERENCIAS DESDE RV1960.JSON', 
                               style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.purpleAccent),
                             ),
-                            subtitle: const Text('Escanea las etiquetas de notas del HTML local y las inyecta en Supabase.', style: TextStyle(fontSize: 12)),
+                            subtitle: const Text('Procesa el HTML local en segundo plano e inyecta en Supabase.', style: TextStyle(fontSize: 12)),
                             onTap: () async {
                               showDialog(
                                 context: context,
@@ -133,98 +134,19 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                                 builder: (context) => const Center(child: CircularProgressIndicator()),
                               );
 
-                              try {
-                                final supabase = Supabase.instance.client;
-                                final dbHelper = BibliaDatabaseHelper();
+                              int insertados = await MigracionService.migrarReferenciasCruzadas(context);
 
-                                final String contenidoJsonCrudo = await DefaultAssetBundle.of(context)
-                                    .loadString('assets/biblias/rv1960.json');
-                                
-                                final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
-                                final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
-
-                                List<Map<String, dynamic>> loteReferencias = [];
-                                int contadorTotal = 0;
-
-                                final RegExp regExpVersiculoBlock = RegExp(r'class="verse\s+v([0-9]+)"[^>]*>(.*?)<\/span>\s*<\/span>', dotAll: true);
-                                final RegExp regExpNotaCruzada = RegExp(r'class="body">(.*?)<\/span>', dotAll: true);
-
-                                for (int i = 0; i < librosJson.length; i++) {
-                                  final int origenLibroId = i + 1;
-                                  final List<dynamic> capitulosJson = librosJson[i]['chapters'] ?? [];
-
-                                  for (var capData in capitulosJson) {
-                                    final int origenCapitulo = capData['chapter_number'] ?? 1;
-                                    final String htmlContenido = capData['chapter_html'] ?? '';
-
-                                    final matchesVersos = regExpVersiculoBlock.allMatches(htmlContenido);
-                                    
-                                    for (var matchV in matchesVersos) {
-                                      final int origenVersiculo = int.parse(matchV.group(1)!);
-                                      final String bloqueInternoHtml = matchV.group(2)!;
-
-                                      if (bloqueInternoHtml.contains('class="note x"')) {
-                                        final matchesNotas = regExpNotaCruzada.allMatches(bloqueInternoHtml);
-                                        
-                                        for (var matchN in matchesNotas) {
-                                          String textoNotaRaw = matchN.group(1)!
-                                              .replaceAll(RegExp(r'<[^>]*>'), '')
-                                              .trim();
-
-                                          List<String> citasIndividuales = textoNotaRaw.split(';');
-
-                                          for (var cita in citasIndividuales) {
-                                            String citaLimpia = cita.replaceAll(RegExp(r'\.$'), '').trim();
-                                            
-                                            final RegExp regexParseo = RegExp(r'([1-3]?\s?[A-Za-z\s\.]+)\s+([0-9]+)\.([0-9]+)');
-                                            final matchParseo = regexParseo.firstMatch(citaLimpia);
-
-                                            if (matchParseo != null) {
-                                              String nombreLibroDestino = matchParseo.group(1)!.trim().replaceAll('.', '');
-                                              int destCap = int.parse(matchParseo.group(2)!);
-                                              int destVer = int.parse(matchParseo.group(3)!);
-
-                                              int destinoLibroId = dbHelper.obtenerLibroId(nombreLibroDestino);
-
-                                              loteReferencias.add({
-                                                'origen_libro_id': origenLibroId,
-                                                'origen_capitulo': origenCapitulo,
-                                                'origen_versiculo': origenVersiculo,
-                                                'destino_libro_id': destinoLibroId,
-                                                'destino_capitulo': destCap,
-                                                'destino_versiculo': destVer,
-                                              });
-
-                                               contadorTotal++;
-
-                                              // Subida controlada en lotes de 2000 filas para evitar caídas por timeout
-                                              if (loteReferencias.length >= 2000) {
-                                                await supabase.from('referencias_cruzadas').insert(loteReferencias);
-                                                print('📤 Sincronizados $contadorTotal registros relacionales con la nube...');
-                                                loteReferencias.clear();
-                                              }
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-
-                                // Enviamos el remanente final de datos
-                                if (loteReferencias.isNotEmpty) {
-                                  await supabase.from('referencias_cruzadas').insert(loteReferencias);
-                                }
-
-                                if (context.mounted) {
-                                  Navigator.pop(context); // Cierra el indicador de carga
+                              if (context.mounted) {
+                                Navigator.pop(context); // Cierra el indicador de carga
+                                if (insertados > 0) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('🎉 ¡Sincronizadas $contadorTotal referencias cruzadas con Supabase!'), backgroundColor: Colors.green),
+                                    SnackBar(content: Text('🎉 ¡Sincronizadas $insertados referencias con Isolate de forma exitosa!'), backgroundColor: Colors.green),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('⚠️ No se extrajeron referencias. Revisa el formato del archivo.'), backgroundColor: Colors.orange),
                                   );
                                 }
-                              } catch (e) {
-                                if (context.mounted) Navigator.pop(context);
-                                print('Error al procesar el HTML interno de rv1960: $e');
                               }
                             },
                           ),
