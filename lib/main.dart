@@ -12,12 +12,20 @@ void main() async {
   // 🚀 DIRECCIÓN INTELIGENTE: Si es Web usa localhost, si es celular usa la IP de la red Wi-Fi
   final String urlBaseSupabase = kIsWeb 
       ? 'http://localhost:55021' 
-      : 'https://qvbojzmtdbrrahtewrrr.supabase.co/rest/v1/'; // Reemplázala por tu IPv4 real de la PC
+      : 'https://qvbojzmtdbrrahtewrrr.supabase.co'; // Reemplázala por tu IPv4 real de la PC
 
   await Supabase.initialize(
     url: urlBaseSupabase,
     anonKey: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
   );
+  try {
+    await Supabase.initialize(
+      url: 'https://supabase.co',
+      anonKey: 'tu-anon-key',
+    );
+  } catch (errorDeRed) {
+    print("🔴 Error crítico de enlace con Supabase: $errorDeRed");
+  }
 
   runApp(const MiAppBiblica());
 }
