@@ -8,7 +8,9 @@ import '../lector/repasador_resaltados_view.dart';
 import '../lector/panel_ajustes_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
-  const PantallaInicioView({super.key});
+  final Function(int) onCambiarPestana;
+
+  const PantallaInicioView({super.key, required this.onCambiarPestana});
 
   @override
   State<PantallaInicioView> createState() => _PantallaInicioViewState();
@@ -101,9 +103,6 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisCount: columnas,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: columnas == 2 ? 1.6 : 1.45,
                   children: [
                     _construirTarjetaModulo(
                       context: context,
@@ -112,7 +111,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                       icono: Icons.edit_note_rounded,
                       colorIcono: Colors.blue,
                       esOscuro: esOscuro,
-                      destino: const VistaEditorBosquejo(),
+                      onTapEspecial: () => widget.onCambiarPestana(1),
                     ),
                     _construirTarjetaModulo(
                       context: context,
@@ -121,7 +120,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                       icono: Icons.menu_book_rounded,
                       colorIcono: Colors.indigo,
                       esOscuro: esOscuro,
-                      destino: const VisorBibliaLibro(),
+                      onTapEspecial: () => widget.onCambiarPestana(2),
                     ),
                     _construirTarjetaModulo(
                       context: context,
@@ -130,7 +129,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                       icono: Icons.bookmark_added_rounded,
                       colorIcono: Colors.amber,
                       esOscuro: esOscuro,
-                      destino: const RepasadorResaltadosView(),
+                      onTapEspecial: () => widget.onCambiarPestana(3),
                     ),
                     _construirTarjetaModulo(
                       context: context,

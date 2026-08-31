@@ -3,8 +3,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../database/biblia_db_helper.dart'; // Tu manejador de persistencia
-import 'pantalla_inicio_view.dart';
+// import 'pantalla_inicio_view.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'controlador_navegacion.dart'; 
 
 class SplashScreenView extends StatefulWidget {
   const SplashScreenView({super.key});
@@ -74,7 +75,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
       // Despacho final al centro de mandos destruyendo el Splash de la pila de memoria
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const PantallaInicioView()),
+        MaterialPageRoute(builder: (context) => const ControladorNavegacion()),
       );
     }
   }
