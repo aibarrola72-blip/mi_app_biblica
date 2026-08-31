@@ -21,7 +21,7 @@ void main() async {
   try {
     await Supabase.initialize(
       url: 'https://supabase.co',
-      anonKey: 'tu-anon-key',
+      anonKey: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
     );
   } catch (errorDeRed) {
     print("🔴 Error crítico de enlace con Supabase: $errorDeRed");
