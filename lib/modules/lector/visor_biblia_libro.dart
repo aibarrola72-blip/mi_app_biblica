@@ -518,7 +518,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     itemCount: _versiculos.length+2,
                     itemBuilder: (context, index) {
                       if (index == 0) {
-                        Padding(padding: const EdgeInsets.only(top: 10.0, bottom: 24.0),
+                       return Padding(padding: const EdgeInsets.only(top: 10.0, bottom: 24.0),
                         child: Center(
                           child: Column(
                             children: [
