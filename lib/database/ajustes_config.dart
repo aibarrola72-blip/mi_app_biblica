@@ -22,6 +22,7 @@ class AjustesConfig extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _tipoLetra = prefs.getString('pref_tipo_letra') ?? 'sans-serif';
     _tamanoLetra = prefs.getDouble('pref_tamano_letra') ?? 18.0;
+    if (_tamanoLetra < 12.0) _tamanoLetra = 18.0;
     _colorFondoHex = prefs.getInt('pref_color_fondo') ?? 0xFFFFFFFF;
     notifyListeners();
     // 🚀 RECOBRAR ESTADO DE MODO OSCURO GUARDADO EN DISCO

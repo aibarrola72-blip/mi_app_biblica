@@ -161,6 +161,8 @@ class BibliaDatabaseHelper {
           .eq('capitulo', capitulo)
           .order('versiculo', ascending: true)
           .timeout(const Duration(milliseconds: 1500)); 
+          
+      print('🔍 Datos crudos recibidos en el teléfono: ${response.toString()}');
       
       final resultadoNube = List<Map<String, dynamic>>.from(response);
 
