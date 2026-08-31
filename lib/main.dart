@@ -36,7 +36,7 @@ class MiAppBiblica extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Biblia Pastoral',
+      title: 'Biblia del Predicador',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
