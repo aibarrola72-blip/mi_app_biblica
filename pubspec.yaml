@@ -108,6 +108,7 @@ flutter:
     - assets/biblias/
 
 flutter_launcher_icons:
+  app_name: "Biblia del Predicador"
   android: "launcher_icon"
   ios: false
   image_path: "assets/icon/app_icon.png"
