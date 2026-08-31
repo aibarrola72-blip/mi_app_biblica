@@ -45,11 +45,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     _ajustesGlobales = AjustesConfig();
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() { if (mounted) setState(() {}); });
-    // if (_ajustesGlobales.modoOscuroLectura) { 
-    //       WakelockPlus.enable();
-    //     } else {
-    //       WakelockPlus.disable();
-    //     }
     WakelockPlus.enable(); 
     _recuperarUltimoProgresoYTexto(); 
   }
@@ -279,105 +274,102 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         backgroundColor: colorAppBarFondo,
         foregroundColor: colorAppBarTexto,
         elevation: 0.5,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        leading: IconButton( 
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          tooltip: 'Regresar al inicio',
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        titleSpacing: 0,
+        // 🚀 LIMPIEZA DE BARRA: Ahora la AppBar solo muestra el nombre del Libro estético y nítido
+        title: 
             Text(
               nombreLibro, 
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: colorAppBarTexto)
-            ),
-            Text(
-              'Capítulo $_capituloSeleccionado', 
-              style: const TextStyle(fontSize: 13, color: Colors.grey)
-            ),
-          ],
-        ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: colorAppBarTexto)
+            ),            
         actions: [
-          IconButton(
-            icon: Icon(
-              esOscuro ? Icons.wb_sunny : Icons.nightlight_round,
-              color: esOscuro ? Colors.amber : Colors.blueGrey,
-            ),
-            tooltip: esOscuro ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
-            onPressed: () {
-              _ajustesGlobales.cambiarModoOscuroLectura(!esOscuro);
-            },
-          ),
+          SizedBox(
+            width: MediaQuery.of(context).size.width * 0.58,
+            child: SingleChildScrollView(scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),child: 
+            Row(children: [
+              IconButton(
+                icon: Icon(
+                  esOscuro ? Icons.wb_sunny : Icons.nightlight_round,
+                  color: esOscuro ? Colors.amber : Colors.blueGrey,
+                ),
+                tooltip: esOscuro ? 'Modo Claro' : 'Modo Oscuro',
+                onPressed: () {
+                  _ajustesGlobales.cambiarModoOscuroLectura(!esOscuro);
+                },
+              ),
           
-          IconButton(
-            icon: Icon(
-              _modoSeleccionMultiple ? Icons.playlist_add_check : Icons.playlist_add,
-              color: _modoSeleccionMultiple ? Colors.green : Colors.blueGrey,
-              size: 26,
-            ),
-            tooltip: 'Activar Selección Múltiple',
-            onPressed: () {
-              setState(() {
-                _modoSeleccionMultiple = !_modoSeleccionMultiple;
-                if (!_modoSeleccionMultiple) {
-                  _versiculosSeleccionados.clear();
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_modoSeleccionMultiple 
-                    ? '📥 Modo Selección Múltiple Activo. Toca los versículos.' 
-                    : 'Modo Selección Múltiple Desactivado.'),
-                  duration: const Duration(seconds: 2),
-                )
-              );
-            },
-          ),
+              IconButton(
+                icon: Icon(
+                  _modoSeleccionMultiple ? Icons.playlist_add_check_rounded : Icons.playlist_add_rounded,
+                  color: _modoSeleccionMultiple ? Colors.green : Colors.blueGrey,
+                ),
+                tooltip: 'Activar Selección Múltiple',
+                onPressed: () {
+                  setState(() {
+                    _modoSeleccionMultiple = !_modoSeleccionMultiple;
+                    if (!_modoSeleccionMultiple) {
+                      _versiculosSeleccionados.clear();
+                    }
+                  });                  // 
+                },
+              ),
           
-          IconButton(
-            icon: const Icon(Icons.text_fields_rounded, size: 20),
-            tooltip: 'Disminuir tamaño de letra',
-            onPressed: () {
-              if (_ajustesGlobales.tamanoLetra > 14.0) {
-                // Restamos 2 puntos a la fuente y guardamos el estado de forma permanente
-                _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra - 2.0);
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.text_fields_rounded, size: 26),
-            tooltip: 'Aumentar tamaño de letra',
-            onPressed: () {
-              if (_ajustesGlobales.tamanoLetra < 30.0) {
-                // Sumamos 2 puntos a la fuente y guardamos el estado de forma permanente
-                _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra + 2.0);
-              }
-            },
-          ),
+              IconButton(
+                icon: const Icon(Icons.text_fields_rounded),
+                tooltip: 'Achicar letra',
+                onPressed: () {
+                  if (_ajustesGlobales.tamanoLetra > 14.0) {
+                    // Restamos 2 puntos a la fuente y guardamos el estado de forma permanente
+                    _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra - 2.0);
+                  }
+                },
+              ),
+
+              IconButton(
+                icon: const Icon(Icons.text_fields_rounded),
+                tooltip: 'Agrandar letra',
+                onPressed: () {
+                  if (_ajustesGlobales.tamanoLetra < 30.0) {
+                    // Sumamos 2 puntos a la fuente y guardamos el estado de forma permanente
+                    _ajustesGlobales.guardarTamanoLetra(_ajustesGlobales.tamanoLetra + 2.0);
+                  }
+                },
+              ),
 
           // Añade esto en las 'actions: []' de tu AppBar en visor_biblia_libro.dart
-          IconButton(
-            icon: const Icon(Icons.search_rounded, size: 24),
-            tooltip: 'Buscar palabra clave',
-            onPressed: _mostrarBuscadorGlobalFlotante, // Llamará a la interfaz que crearemos abajo
-          ),
+              IconButton(
+                icon: const Icon(Icons.search_rounded),
+                tooltip: 'Buscar palabra o frase en toda la Biblia',
+                onPressed: _mostrarBuscadorGlobalFlotante, // Llamará a la interfaz que crearemos abajo
+              ),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0),
               decoration: BoxDecoration(
                 color: esOscuro ? Colors.grey.shade900 : const Color(0xFFF1F3F4),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: esOscuro ? Colors.grey.shade800 : Colors.black12,
                   width: 1,
                 ),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
+                child: DropdownButton(
                   value: _versionSeleccionada,
                   dropdownColor: colorAppBarFondo, 
                   iconEnabledColor: esOscuro ? Colors.blue.shade300 : Colors.blue.shade700, 
                   style: TextStyle(
                     color: esOscuro ? Colors.white : Colors.black87, 
-                    fontSize: 15, 
-                    fontWeight: FontWeight.bold
+                    fontSize: 13, fontWeight: FontWeight.bold
                   ),
                   // 🚀 ÍCONOS INTEGRADOS EN CADA TRADUCCIÓN:
                   items: [
@@ -404,7 +396,10 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
               ),
             ),
           ),
-
+        ],
+      ),
+    ),
+          ),
         ],
       ),
       
@@ -428,8 +423,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
                     final List<int> listaOrdenada = _versiculosSeleccionados.toList()..sort();
                     
-                    StringBuffer textoCompletoBloque = StringBuffer();
-                    
+                    StringBuffer textoCompletoBloque = StringBuffer();                    
                     // Extraemos y concatenamos los textos de cada versículo seleccionado
                     for (int numV in listaOrdenada) {
                       final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV);
@@ -471,7 +465,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     // Transmitimos el rango al canal. El editor recibirá el puntero y tu Lector Contextual
                     // del panel derecho reaccionará abriendo el capítulo completo al procesar la primera cifra.
                     CanalEventos().enviarCitaAlEditor(citaRango);
-
                     // Limpiamos los estados de selección múltiple tras el envío
                     setState(() {
                       _versiculosSeleccionados.clear();
@@ -522,12 +515,30 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
                     // 🚀 MEJORA DE ACOPLAMIENTO: Colchón elástico inferior para liberar el último
-                    itemCount: _versiculos.length+1,
+                    itemCount: _versiculos.length+2,
                     itemBuilder: (context, index) {
-                      if (index == _versiculos.length) {
-                        return const SizedBox(height: 80); // Colchón elástico inferior
-                      }
-                      final v = _versiculos[index];
+                      if (index == 0) {
+                        Padding(padding: const EdgeInsets.only(top: 10.0, bottom: 24.0),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Text('CAPÍTULO $_capituloSeleccionado',style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra + 4, // Crece proporcionalmente según los ajustes
+                              fontWeight: FontWeight.bold,letterSpacing: 2.0,color: const Color(0xFF1A73E8),fontFamily: 'sans-serif',),),
+                              const SizedBox(height: 6),Container(width: 45,height: 2.5,color: Colors.blueGrey.withOpacity(0.3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }                     // Colchón elástico inferior
+                  
+                  // CASO 2: ÍTEM FINAL (Colchón elástico inferior de la lista)
+                  if (index == _versiculos.length + 1) {
+                    return const SizedBox(height: 80);
+                  }
+                  // CASO 3: RENDERIZADO NORMAL DE VERSÍCULOS (Ajustamos el índice restando el desfase del título)
+
+                      final v = _versiculos[index -1];
                       final numVerso = v['versiculo'] ?? 1;
                       final llaveResaltado = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numVerso';
                       final int? colorHex = _resaltadosLocales[llaveResaltado];
@@ -595,8 +606,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       );
                     },
                   ),
-          ),
-          
+          ),          
           // Barra de información inferior persistente
           Container(
             width: double.infinity,
@@ -1195,5 +1205,4 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       ),
     );
   }
-
 }    
