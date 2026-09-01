@@ -5,8 +5,6 @@ import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'modules/bosquejos/vista_editor.dart'; // Importa el archivo del editor
 import 'package:flutter/foundation.dart' show kIsWeb;
-// import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
-import 'package:mi_app_biblica/modules/lector/controlador_navegacion.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import '../../database/ajustes_config.dart';
-import '../bosquejos/vista_editor.dart';
-import '../lector/visor_biblia_libro.dart';
-import '../lector/repasador_resaltados_view.dart';
+// import '../bosquejos/vista_editor.dart';
+// import '../lector/visor_biblia_libro.dart';
+// import '../lector/repasador_resaltados_view.dart';
 import '../lector/panel_ajustes_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
@@ -46,7 +46,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         centerTitle: false,
         title: Row(
           children: [
-            Icon(Icons.auto_stories_rounded, color: Colors.blue.shade600, size: 28),
+            Icon(Icons.auto_stories_rounded, color: const Color.fromARGB(255, 134, 10, 8), size: 28),
             const SizedBox(width: 12),
             Text(
               'Biblioteca Pastoral',
