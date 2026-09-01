@@ -1,5 +1,5 @@
 // lib/modules/lector/visor_biblia_libro.dart
-
+import 'dart:async'; 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -628,16 +628,18 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     final TextEditingController controladorBusqueda = TextEditingController();
     List<Map<String, dynamic>> resultadosLocales = [];
     bool buscando = false;
+    
+    // 🚀 DEBOUNCER LOCAL: Controla el flujo de peticiones automáticas
+    Timer? debounceTimerModal;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true, // Esquiva la cámara frontal del celular físico
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter modalState) {
-            // Capturamos el término escrito por el pastor
             final String terminoBuscado = controladorBusqueda.text.trim();
 
             return Container(
@@ -652,14 +654,39 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   ),
                   const SizedBox(height: 12),
                   
-                  // Campo de Entrada con botón Clear adaptativo
+                  // Campo de Entrada Automatizado y Reactivo
                   TextField(
                     controller: controladorBusqueda,
                     autofocus: true,
                     textInputAction: TextInputAction.search,
+                    
+                    // 🚀 DISPARADOR AUTOMÁTICO EN TIEMPO REAL:
                     onChanged: (texto) {
-                      modalState(() {}); // Redibuja el ícono de borrar dinámicamente
+                      // Actualiza de inmediato la UI interna para alternar el botón de borrar/buscar
+                      modalState(() {});
+
+                      // Evita peticiones innecesarias a Supabase si el texto es muy corto
+                      if (texto.trim().length < 3) {
+                        modalState(() => resultadosLocales = []);
+                        return;
+                      }
+
+                      // Reinicia el temporizador si el usuario sigue escribiendo rápido
+                      if (debounceTimerModal?.isActive ?? false) debounceTimerModal!.cancel();
+                      
+                      // Espera 600ms de inactividad antes de lanzar la consulta automática
+                      debounceTimerModal = Timer(const Duration(milliseconds: 600), () async {
+                        modalState(() => buscando = true);
+
+                        final datos = await _dbHelper.buscarPalabraClaveGlobal(texto);
+
+                        modalState(() {
+                          resultadosLocales = datos;
+                          buscando = false;
+                        });
+                      });
                     },
+                    
                     decoration: InputDecoration(
                       hintText: 'Ej: "Espíritu Santo", "gracia", "fe"...',
                       prefixIcon: const Icon(Icons.search, color: Colors.blue),
@@ -667,6 +694,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                               onPressed: () {
+                                if (debounceTimerModal?.isActive ?? false) debounceTimerModal!.cancel();
                                 controladorBusqueda.clear();
                                 modalState(() {
                                   resultadosLocales.clear();
@@ -677,11 +705,9 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                               icon: const Icon(Icons.arrow_circle_right_rounded, color: Color(0xFF1A73E8), size: 28),
                               onPressed: () async {
                                 if (controladorBusqueda.text.trim().isEmpty) return;
+                                if (debounceTimerModal?.isActive ?? false) debounceTimerModal!.cancel();
                                 modalState(() => buscando = true);
-                                
-                                // 🚀 INVOCACIÓN DIRECTA: Consume el helper del widget padre de forma segura
                                 final datos = await _dbHelper.buscarPalabraClaveGlobal(controladorBusqueda.text);
-                                
                                 modalState(() {
                                   resultadosLocales = datos;
                                   buscando = false;
@@ -693,6 +719,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     ),
                     onSubmitted: (val) async {
                       if (val.trim().isEmpty) return;
+                      if (debounceTimerModal?.isActive ?? false) debounceTimerModal!.cancel();
                       modalState(() => buscando = true);
                       final datos = await _dbHelper.buscarPalabraClaveGlobal(val);
                       modalState(() { resultadosLocales = datos; buscando = false; });
@@ -700,14 +727,14 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   ),
                   const SizedBox(height: 10),
                   
-                  // Lista de Resultados con Fragmentos Pintados en Amarillo
+                  // Lista de Resultados con Fragmentos Resaltados
                   Expanded(
                     child: buscando
                         ? const Center(child: CircularProgressIndicator())
                         : resultadosLocales.isEmpty
                             ? const Center(
                                 child: Text(
-                                  'Ingresa una palabra para buscar en toda la Biblia.',
+                                  'Escribe al menos 3 letras para buscar de forma automática...',
                                   style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                                 ),
                               )
@@ -743,18 +770,14 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                           fontFamily: 'serif', 
                                           height: 1.4
                                         ),
-                                        // Pintura marcadora fluorescente
                                         children: _crearFragmentosResaltados(textoVerso, terminoBuscado),
                                       ),
                                     ),
                                     shape: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
                                     onTap: () {
-                                      Navigator.pop(context); // Cierra el buscador flotante
-                                      
-                                      // Guardamos el rastro en la pila para el botón "Volver"
+                                      if (debounceTimerModal?.isActive ?? false) debounceTimerModal!.cancel();
+                                      Navigator.pop(context); // Cierra el modal
                                       _histOriginalRegresoAlSaltar();
-                                      
-                                      // Sincronizamos el pasaje de forma reactiva en el visor principal
                                       setState(() {
                                         _libroSeleccionado = libroId;
                                         _capituloSeleccionado = capNum;
@@ -771,7 +794,10 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
           },
         );
       },
-    );
+    ).then((_) {
+      // 🚀 LIMPIEZA ADICIONAL AL CERRAR: Cancela el timer por si el pastor cierra el modal antes de los 600ms
+      debounceTimerModal?.cancel();
+    });
   }
 
   List<TextSpan> _crearFragmentosResaltados(String textoOriginal, String terminoBusqueda) {
