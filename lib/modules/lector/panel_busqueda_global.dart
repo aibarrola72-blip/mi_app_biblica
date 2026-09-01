@@ -101,7 +101,8 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
   Widget build(BuildContext context) {
     final String terminoBuscado = _busquedaController.text.trim();
 
-    return Padding(
+    return SafeArea(
+      child: Padding(
       padding: const EdgeInsets.all(12.0),
       child: Column(
         children: [
@@ -234,6 +235,7 @@ class _PanelBusquedaGlobalState extends State<PanelBusquedaGlobal> {
           ),
         ],
       ),
+    )
     );
   }
 }
