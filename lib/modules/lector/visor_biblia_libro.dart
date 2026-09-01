@@ -623,6 +623,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     );
   }
 
+  // Busca y reemplaza este método exacto en lib/modules/lector/visor_biblia_libro.dart
   void _mostrarBuscadorGlobalFlotante() {
     final TextEditingController controladorBusqueda = TextEditingController();
     List<Map<String, dynamic>> resultadosLocales = [];
@@ -630,13 +631,17 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Permite expandirse de forma cómoda con el teclado en pantalla
+      isScrollControlled: true,
+      useSafeArea: true, // Esquiva la cámara frontal del celular físico
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
-        return StatefulBuilder( // Permite refrescar de forma aislada la lista de resultados sin redibujar toda la Biblia de fondo
+        return StatefulBuilder(
           builder: (BuildContext context, StateSetter modalState) {
+            // Capturamos el término escrito por el pastor
+            final String terminoBuscado = controladorBusqueda.text.trim();
+
             return Container(
-              height: MediaQuery.of(context).size.height * 0.75, // Ocupa el 75% de la pantalla
+              height: MediaQuery.of(context).size.height * 0.75,
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,27 +652,24 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   ),
                   const SizedBox(height: 12),
                   
-                  // Campo de Texto Estilizado con botón de disparo
-                  // Reemplaza el TextField dentro de '_mostrarBuscadorGlobalFlotante' por este bloque:
+                  // Campo de Entrada con botón Clear adaptativo
                   TextField(
                     controller: controladorBusqueda,
                     autofocus: true,
                     textInputAction: TextInputAction.search,
-                    // 🚀 ESCUCHADOR EN TIEMPO REAL: Fuerza al modal a redibujarse para alternar los íconos de borrar/enviar
                     onChanged: (texto) {
-                      modalState(() {});
+                      modalState(() {}); // Redibuja el ícono de borrar dinámicamente
                     },
                     decoration: InputDecoration(
                       hintText: 'Ej: "Espíritu Santo", "gracia", "fe"...',
-                      prefixIcon: const Icon(Icons.search),
-                      // 🚀 SÚFIX ICON ADAPTATIVO:
+                      prefixIcon: const Icon(Icons.search, color: Colors.blue),
                       suffixIcon: controladorBusqueda.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, color: Colors.grey),
                               onPressed: () {
-                                controladorBusqueda.clear(); // Vacía el controlador de texto
+                                controladorBusqueda.clear();
                                 modalState(() {
-                                  resultadosLocales.clear(); // Limpia los resultados de la pantalla
+                                  resultadosLocales.clear();
                                 });
                               },
                             )
@@ -676,7 +678,10 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                               onPressed: () async {
                                 if (controladorBusqueda.text.trim().isEmpty) return;
                                 modalState(() => buscando = true);
+                                
+                                // 🚀 INVOCACIÓN DIRECTA: Consume el helper del widget padre de forma segura
                                 final datos = await _dbHelper.buscarPalabraClaveGlobal(controladorBusqueda.text);
+                                
                                 modalState(() {
                                   resultadosLocales = datos;
                                   buscando = false;
@@ -693,10 +698,9 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       modalState(() { resultadosLocales = datos; buscando = false; });
                     },
                   ),
-
                   const SizedBox(height: 10),
                   
-                  // Lista de Resultados Dinámica
+                  // Lista de Resultados con Fragmentos Pintados en Amarillo
                   Expanded(
                     child: buscando
                         ? const Center(child: CircularProgressIndicator())
@@ -707,19 +711,15 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                   style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                                 ),
                               )
-                            : // Reemplaza el ListView.builder dentro de '_mostrarBuscadorGlobalFlotante' por este bloque:
-                              ListView.builder(
+                            : ListView.builder(
                                 itemCount: resultadosLocales.length,
                                 itemBuilder: (context, index) {
                                   final res = resultadosLocales[index];
-                                  final int libroId = res['libro_id'];
-                                  final int capNum = res['capitulo'];
-                                  final int verNum = res['versiculo'];
+                                  final int libroId = res['libro_id'] ?? 1;
+                                  final int capNum = res['capitulo'] ?? 1;
+                                  final int verNum = res['versiculo'] ?? 1;
                                   final String textoVerso = res['texto'] ?? '';
                                   final String nombreLibro = _dbHelper.obtenerNombreLibro(libroId);
-                                  
-                                  // Obtenemos el término crudo que escribió el usuario para segmentar el texto
-                                  final String terminoBuscado = controladorBusqueda.text.trim();
 
                                   return ListTile(
                                     contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
@@ -743,14 +743,18 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                           fontFamily: 'serif', 
                                           height: 1.4
                                         ),
-                                        // 🚀 LLAMADA AL MOTOR DE RESALTADO DINÁMICO INSENSIBLE:
+                                        // Pintura marcadora fluorescente
                                         children: _crearFragmentosResaltados(textoVerso, terminoBuscado),
                                       ),
                                     ),
                                     shape: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
                                     onTap: () {
-                                      Navigator.pop(context);
+                                      Navigator.pop(context); // Cierra el buscador flotante
+                                      
+                                      // Guardamos el rastro en la pila para el botón "Volver"
                                       _histOriginalRegresoAlSaltar();
+                                      
+                                      // Sincronizamos el pasaje de forma reactiva en el visor principal
                                       setState(() {
                                         _libroSeleccionado = libroId;
                                         _capituloSeleccionado = capNum;
@@ -759,12 +763,12 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                     },
                                   );
                                 },
-                              )
+                              ),
                   ),
                 ],
               ),
             );
-          }
+          },
         );
       },
     );

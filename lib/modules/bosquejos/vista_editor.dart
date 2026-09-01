@@ -243,9 +243,12 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     });
   }
 
+  // lib/modules/editor/vista_editor_bosquejo.dart
   void _analizarTextoConRegEx() async {
     final textoPlano = _controller.document.toPlainText();
-    final regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
+    
+    // 🔍 Expresión Regular flexible: Captura el libro, capítulo y versículo
+    final regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+):([0-9]+)\b');
     final matches = regExp.allMatches(textoPlano);
     
     if (matches.isEmpty && _pasajesDetectados.isEmpty) return;
@@ -253,29 +256,55 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     List<PasajeBiblico> nuevosPasajes = [];
     final dbHelper = BibliaDatabaseHelper();
 
+    // Diccionario local del editor normalizado (Todas las llaves limpias sin acentos)
     const Map<String, int> diccionarioLocalEditor = {
-      'gn': 1, 'ex': 2, 'lv': 3, 'nm': 4, 'dt': 5, 'jos': 6, 'jue': 7, 'rt': 8,
+      'gn': 1, 'genesis': 1, 'ex': 2, 'exodo': 2, 'lv': 3, 'levitico': 3, 'nm': 4, 'numeros': 4, 
+      'dt': 5, 'deuteronomio': 5, 'jos': 6, 'josue': 6, 'jue': 7, 'jueces': 7, 'rt': 8, 'rut': 8,
       '1 sm': 9, '1sm': 9, '2 sm': 10, '2sm': 10, '1 r': 11, '1r': 11, '2 r': 12, '2r': 12, 
-      '1 cr': 13, '1cr': 13, '2 cr': 14, '2cr': 14, 'esd': 15, 'neh': 16, 'est': 17, 'job': 18, 
-      'sal': 19, 'pr': 20, 'ec': 21, 'cnt': 22, 'is': 23, 'jr': 24, 'lam': 25, 'ez': 26, 
-      'dn': 27, 'os': 28, 'jl': 29, 'am': 30, 'abd': 31, 'jon': 32, 'mi': 33, 'nah': 34, 
-      'hab': 35, 'sof': 36, 'hag': 37, 'zac': 38, 'mal': 39, 'mt': 40, 'mr': 41, 'lc': 42, 
-      'jn': 43, 'hch': 44, 'ro': 45, '1 co': 46, '1co': 46, '1 cor': 46, '2 co': 47, '2co': 47, 
-      'ga': 48, 'ef': 49, 'flp': 50, 'col': 51, '1 ts': 52, '1ts': 52, '2 ts': 53, '2ts': 53, 
-      '1 ti': 54, '1ti': 54, '2 ti': 55, '2ti': 55, 'ti': 56, 'flm': 57, 'heb': 58, 'stg': 59, 
-      '1 p': 60, '1p': 60, '2 p': 61, '2p': 61, '1 jn': 62, '1jn': 62, '2 jn': 63, '2jn': 63, 
-      '3 jn': 64, '3jn': 64, 'jud': 65, 'ap': 66
+      '1 cr': 13, '1cr': 13, '1 cronicas': 13, '2 cr': 14, '2cr': 14, '2 cronicas': 14, 
+      'esd': 15, 'esdras': 16, 'neh': 16, 'nehemias': 16, 'est': 17, 'ester': 17, 'job': 18, 
+      'sal': 19, 'salmos': 19, 'pr': 20, 'proverbios': 20, 'ec': 21, 'eclesiastes': 21, 
+      'cnt': 22, 'cantares': 22, 'is': 23, 'isaias': 23, 'jr': 24, 'jeremias': 24, 'lam': 25, 
+      'lamentaciones': 25, 'ez': 26, 'ezequiel': 26, 'dn': 27, 'daniel': 27, 'os': 28, 'oseas': 28, 
+      'jl': 29, 'joel': 29, 'am': 30, 'amos': 30, 'abd': 31, 'abdias': 31, 'jon': 32, 'jonas': 32, 
+      'mi': 33, 'miqueas': 33, 'nah': 34, 'nahum': 34, 'hab': 35, 'habacuc': 35, 'sof': 36, 
+      'sofonias': 36, 'hag': 37, 'hageo': 37, 'zac': 38, 'zacarias': 38, 'mal': 39, 'malaquias': 39, 
+      'mt': 40, 'mateo': 40, 'mr': 41, 'marcos': 41, 'lc': 42, 'lucas': 42, 'jn': 43, 'juan': 43, 
+      'hch': 44, 'hechos': 44, 'ro': 45, 'romanos': 45, '1 co': 46, '1co': 46, '1 cor': 46, '1 corintios': 46,
+      '2 co': 47, '2co': 47, '2 corintios': 47, 'ga': 48, 'galatas': 48, 'ef': 49, 'efesios': 49, 
+      'flp': 50, 'filipenses': 50, 'col': 51, 'colosenses': 51, '1 ts': 52, '1ts': 52, '1 tesalonicenses': 52, 
+      '2 ts': 53, '2ts': 53, '2 tesalonicenses': 53, '1 ti': 54, '1ti': 54, '1 timoteo': 54, 
+      '2 ti': 55, '2ti': 55, '2 timoteo': 55, 'ti': 56, 'tito': 56, 'flm': 57, 'filemon': 57, 
+      'heb': 58, 'hebreos': 58, 'stg': 59, 'santiago': 59, '1 p': 60, '1p': 60, '1 pedro': 60, 
+      '2 p': 61, '2p': 61, '2 pedro': 61, '1 jn': 62, '1jn': 62, '1 juan': 62, '2 jn': 63, 
+      '2jn': 63, '2 juan': 63, '3 jn': 64, '3jn': 64, '3 juan': 64, 'jud': 65, 'judas': 65, 
+      'ap': 66, 'apocalipsis': 66
     };
+
+    // Función auxiliar local idéntica para limpiar acentos y tildes en el Editor
+    String removerAcentos(String texto) {
+      var conAcento = 'áéíóúÁÉÍÓÚñÑ';
+      var sinAcento = 'aeiouAEIOUnN';
+      String resultado = texto;
+      for (int i = 0; i < conAcento.length; i++) {
+        resultado = resultado.replaceAll(conAcento[i], sinAcento[i]);
+      }
+      return resultado.toLowerCase().trim().replaceAll('.', ''); // Limpia también puntos residuales de abreviaturas
+    }
 
     for (var match in matches) {
       final String nombreLibroRaw = match.group(1)!.trim();
-      final String nombreLibroMinuscula = nombreLibroRaw.toLowerCase();
+      
+      // 🚀 CLAVE DE LA OPTIMIZACIÓN: Sanitizamos el nombre capturado eliminando tildes y puntos
+      final String nombreLibroSanitizado = removerAcentos(nombreLibroRaw);
       
       int libroId = 0;
 
-      if (diccionarioLocalEditor.containsKey(nombreLibroMinuscula)) {
-        libroId = diccionarioLocalEditor[nombreLibroMinuscula]!;
+      // Buscamos primero en el diccionario extendido del editor
+      if (diccionarioLocalEditor.containsKey(nombreLibroSanitizado)) {
+        libroId = diccionarioLocalEditor[nombreLibroSanitizado]!;
       } else {
+        // Si no está, consultamos al Helper usando la función robusta que ya creaste
         libroId = dbHelper.obtenerLibroId(nombreLibroRaw);
       }
       
@@ -289,6 +318,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       ));
     }
 
+    // Si se detectaron cambios en la lista de pasajes, actualizamos la UI reactiva del panel lateral derecho
     if (nuevosPasajes.length != _pasajesDetectados.length) {
       if (mounted) {
         setState(() { _pasajesDetectados = nuevosPasajes; });
@@ -627,9 +657,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
                       )
                     );
                   }
-                } catch (error) {
-                             
-                }
+                } catch (error) { }
               }
             ),
           )
@@ -814,10 +842,6 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
                       Row(
                         children: [
                           Expanded(child: TextField(controller: _tituloController, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                          IconButton(
-                            onPressed: _activarModoPredicacion, 
-                            icon: const Icon(Icons.play_arrow, color: Colors.green),
-                          ),
                           // 🚀 NUEVO BOTÓN DE DICTADO POR VOZ
                           IconButton(
                             icon: Icon(
