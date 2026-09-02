@@ -50,7 +50,7 @@ dependencies:
   google_sign_in: ^6.2.1 # Permite usar los diálogos nativos del celular
   google_fonts: ^6.2.0
   excel: ^4.0.0
-  postgres: ^3.0.0
+  postgres: ^3.5.12
 
 dev_dependencies:
   flutter_test:
