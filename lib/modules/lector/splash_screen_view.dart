@@ -83,7 +83,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 134, 10, 8),
+      backgroundColor: const Color.fromARGB(255, 134, 10, 10),
       body: Center(
         child: AnimatedOpacity(
           opacity: _opacidad,
@@ -100,7 +100,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
                 child: const Icon(
                   Icons.auto_stories_rounded, 
                   size: 72, 
-                  color: Color(0xFF1A73E8),
+                  color: Color.fromARGB(255, 135, 10, 10),
                 ),
               ),
               const SizedBox(height: 24),
