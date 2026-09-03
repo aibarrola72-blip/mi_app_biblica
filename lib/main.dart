@@ -4,15 +4,15 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'modules/bosquejos/vista_editor.dart'; // Importa el archivo del editor
-import 'package:flutter/foundation.dart' show kIsWeb;
+// import 'package:flutter/foundation.dart' show kIsWeb;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 🚀 DIRECCIÓN INTELIGENTE: Si es Web usa localhost, si es celular usa la IP de la red Wi-Fi
-  final String urlBaseSupabase = kIsWeb 
-      ? 'http://localhost:55021' 
-      : 'https://qvbojzmtdbrrahtewrrr.supabase.co'; // Reemplázala por tu IPv4 real de la PC
+  final String urlBaseSupabase = 
+  // kIsWeb 
+       'https://qvbojzmtdbrrahtewrrr.supabase.co'; // Reemplázala por tu IPv4 real de la PC
 
   await Supabase.initialize(
     url: urlBaseSupabase,
