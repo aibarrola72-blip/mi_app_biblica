@@ -49,18 +49,28 @@ void main() async {
 
     if (linea.trim().isEmpty) continue;
 
-    try {
-      final columnas = linea.split(','); // Si tu CSV usa punto y coma, cambia ',' por ';'
+          try {
+      // Forzamos la separación por punto y coma que es el que usa tu archivo
+      final columnas = linea.split(';');
 
-      final int origenLibroId   = int.parse(columnas[1].trim());
-      final int origenCapitulo  = int.parse(columnas[2].trim());
-      final int origenVersiculo = int.parse(columnas[3].trim());
+      // Como tu línea empieza con ';', la columna[0] está vacía.
+      // Desplazamos los índices exactamente un lugar a la derecha.
+      if (columnas.length < 8) continue; 
+
+      String limpiar(String texto) => texto.trim().replaceAll('"', '').replaceAll("'", "");
+
+      // Mapeo ajustado: columnas[1] es origen_libro_id, columnas[2] es origen_capitulo, etc.
+      final int origenLibroId   = int.parse(limpiar(columnas[1]));
+      final int origenCapitulo  = int.parse(limpiar(columnas[2]));
+      final int origenVersiculo = int.parse(limpiar(columnas[3]));
       
-      final int destinoLibroId  = int.parse(columnas[4].trim());
-      final int destinoCapitulo = int.parse(columnas[5].trim());
-      final int destinoVersiculo= int.parse(columnas[6].trim());
+      final int destinoLibroId  = int.parse(limpiar(columnas[4]));
+      final int destinoCapitulo = int.parse(limpiar(columnas[5]));
+      final int destinoVersiculo= int.parse(limpiar(columnas[6]));
       
-      final String llaveUnica   = columnas[7].trim().replaceAll("'", "");
+      final String llaveUnica   = limpiar(columnas[7]);
+
+      if (llaveUnica.isEmpty || origenLibroId == 0) continue;
 
       loteActual.add([
         origenLibroId,
@@ -75,11 +85,12 @@ void main() async {
       if (loteActual.length >= tamanoLote) {
         await _subirLote(conn, loteActual);
         filasProcesadas += loteActual.length;
-        print('-> Progreso: $filasProcesadas filas subidas a Supabase...');
+        print('-> Progreso real: $filasProcesadas filas subidas a Supabase...');
         loteActual.clear();
       }
     } catch (e) {
-      // Ignora errores visuales de filas vacías
+      // Dejamos este print temporal para monitorear si alguna fila específica tiene problemas
+      print('Fila omitida por error: $e. Contenido: $linea');
     }
   }
 
@@ -97,22 +108,28 @@ void main() async {
 }
 
 // Función encargada de inyectar el bloque de datos a PostgreSQL
-  Future<void> _subirLote(Connection conn, List<List<dynamic>> lote) async {
-    final String placeholders = lote.map((_) => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+Future<void> _subirLote(Connection conn, List<List<dynamic>> lote) async {
+  // Construimos las tuplas de valores directamente en el string SQL de forma segura
+  final String filasSQL = lote.map((fila) {
+    final int origLibro = fila[0];
+    final int origCap = fila[1];
+    final int origVer = fila[2];
+    final int destLibro = fila[3];
+    final int destCap = fila[4];
+    final int destVer = fila[5];
+    final String llave = fila[6];
     
-    final String query = '''
-      INSERT INTO public.referencias_cruzadas 
-      (origen_libro_id, origen_capitulo, origen_versiculo, destino_libro_id, destino_capitulo, destino_versiculo, llave_unica)
-      VALUES $placeholders
-      ON CONFLICT (llave_unica) DO NOTHING;
-    ''';
+    return "($origLibro, $origCap, $origVer, $destLibro, $destCap, $destVer, '$llave')";
+  }).join(',\n');
 
-    // Aplana la lista de listas en una sola lista continua de parámetros
-    final List<dynamic> parametrosAplanados = lote.expand((fila) => fila).toList();
+  final String query = '''
+    INSERT INTO public.referencias_cruzadas 
+    (origen_libro_id, origen_capitulo, origen_versiculo, destino_libro_id, destino_capitulo, destino_versiculo, llave_unica)
+    VALUES 
+    $filasSQL
+    ON CONFLICT (llave_unica) DO NOTHING;
+  ''';
 
-    // El método .execute() nativo de la v3 acepta el Query string y los parámetros directamente
-    await conn.execute(
-      query,
-      parameters: parametrosAplanados,
-    );
-  }
+  // Ejecutamos el SQL directo sin pasar parámetros separados
+  await conn.execute(query);
+}

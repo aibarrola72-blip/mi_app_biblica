@@ -14,6 +14,14 @@ class AjustesConfig extends ChangeNotifier {
   double get tamanoLetra => _tamanoLetra;
   int get colorFondoHex => _colorFondoHex;
   bool get modoOscuroLectura => _modoOscuroLectura;
+  // En tu clase AjustesConfig dentro de lib/database/ajustes_config.dart:
+  bool _modoPulpitoActivo = false;
+  bool get modoPulpitoActivo => _modoPulpitoActivo;
+
+  void cambiarModoPulpito(bool activado) {
+    _modoPulpitoActivo = activado;
+    notifyListeners();
+  }
 
   final _supabase = Supabase.instance.client;
 

@@ -1,4 +1,3 @@
-import 'package:mi_app_biblica/database/migrador_biblico.dart';
 import 'dart:async'; // Requerido para el Timer (Debouncer)
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -205,6 +204,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     final indexCursor = _controller.selection.baseOffset;
     final String textoAInsertar = ' $cita '; 
 
+    // 1. Inserción física en el lienzo de Quill (Conserva tu lógica actual)
     if (indexCursor >= 0) {
       _controller.document.insert(indexCursor, textoAInsertar);
       _controller.updateSelection(
@@ -216,6 +216,41 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       _controller.document.insert(longitudDocumento - 1, textoAInsertar);
     }
 
+    // 2. 🚀 MOTOR DE INTERCEPCIÓN INMEDIATA PARA LIBROS CON ACENTOS
+    try {
+      // Expresión regular robusta para descomponer la cita entrante (Ej: "Génesis 1:1" o "1 Crónicas 4:10")
+      final RegExp regexInyeccion = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+):([0-9]+)\b');
+      final match = regexInyeccion.firstMatch(cita.trim());
+
+      if (match != null) {
+        final String nombreLibroRaw = match.group(1)!.trim();
+        final dbHelper = BibliaDatabaseHelper();
+        
+        // Obtenemos el ID del libro usando el método inmune a acentos de tu base de datos
+        int libroId = dbHelper.obtenerLibroId(nombreLibroRaw);
+
+        if (libroId != 0) {
+          final int cap = int.parse(match.group(2)!);
+          final int ver = int.parse(match.group(3)!);
+
+          // Forzamos al Editor a cargar el pasaje completo en el panel derecho reactivo
+          setState(() {
+            _pasajeSeleccionado = PasajeBiblico(
+              libroId: libroId,
+              capitulo: cap,
+              versiculo: ver,
+              textoOriginal: cita.trim(),
+            );
+            // Si estamos en una Tablet/PC, esto asegura que se mueva a la pestaña de visualización
+            _mostrarBuscadorEnTablet = false; 
+          });
+        }
+      }
+    } catch (e) {
+      print('Aviso en parseo de inyección forzada de cita: $e');
+    }
+
+    // Notificación flotante pastoral en pantalla
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('📖 Cita sincronizada en el sermón: $cita'),
@@ -570,97 +605,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
                       );
                     },
                   ),
-          ),
-          const Divider(),
-          // 🚀 BOTÓN TEMPORAL DE MIGRACIÓN: Se elimina una vez cargada la base de datos
-                    Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(45),
-              ),
-              icon: const Icon(Icons.download_for_offline),
-              label: const Text('Completar y Cargar Biblias'),
-              onPressed: () async {
-                // 1. Creamos el notificador nativo con el mensaje inicial
-                final ValueNotifier<String> progresoNotifier = ValueNotifier<String>('Iniciando migrador...');
-
-                // 2. Desplegamos el modal gráfico bloqueado
-                showDialog(
-                  context: context,
-                  barrierDismissible: false, // Protege la transacción impidiendo cerrar el modal al tocar afuera
-                  builder: (context) {
-                    return AlertDialog(
-                      title: const Row(
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(width: 15),
-                          Text('Carga Masiva Activa'),
-                        ],
-                      ),
-                      // ValueListenableBuilder: Redibuja ÚNICAMENTE el texto cuando el valor cambia,
-                      // logrando un rendimiento óptimo de 60 FPS en el celular sin tocar la UI principal.
-                      content: ValueListenableBuilder<String>(
-                        valueListenable: progresoNotifier,
-                        builder: (context, valorProgreso, child) {
-                          return Text(valorProgreso, style: const TextStyle(fontSize: 15));
-                        },
-                      ),
-                    );
-                  },
-                );
-
-                // 3. Ejecutamos el migrador asíncrono pasándole las actualizaciones al notificador
-                                try {
-                  final migrador = MigradorBiblico();
-
-                  // 🚀 DICCIONARIO DE VERSIONES COMPLETO:
-                  // Aquí puedes añadir o quitar de golpe todas las versiones que descargaste en la carpeta
-                  final List<Map<String, String>> versionesAMigrar = [
-                    {'id': 'RV1960', 'archivo': 'rv1960'},
-                    {'id': 'RVC', 'archivo': 'rvc'},
-                    {'id': 'RVA2015', 'archivo': 'rva2015'},
-                    {'id': 'TLA', 'archivo': 'tla'},
-                    {'id': 'TLAI', 'archivo': 'tlai'},
-                    {'id': 'NVI', 'archivo': 'nvi128'},
-                    {'id': 'NVIC', 'archivo': 'nvi1637'},
-                    {'id': 'NTV', 'archivo': 'ntv'},
-                    {'id': 'NBLA', 'archivo': 'nbla'},
-                    {'id': 'LBLA', 'archivo': 'lbla'},
-                    {'id': 'DHH', 'archivo': 'dhh'},
-                    {'id': 'DHHS', 'archivo': 'dhhs'}, // Recuerda poner el nombre exacto de tu archivo .json
-                  ];
-
-                  // Bucle automatizado: Procesa e inyecta cada versión secuencialmente
-                  for (var version in versionesAMigrar) {
-                    await migrador.cargarVersionDesdeJsonLocal(
-                      version['id']!, 
-                      version['archivo']!, 
-                      (msg) => progresoNotifier.value = '📖 ${version['id']}:\n$msg'
-                    );
-                    
-                    // Pequeña pausa de estabilización de 300ms entre archivos para el procesador
-                    await Future.delayed(const Duration(milliseconds: 300));
-                  }
-
-                  // 4. Proceso terminado con éxito total
-                  if (context.mounted) {
-                    Navigator.pop(context); // Cierra el cuadro de diálogo de carga
-                    progresoNotifier.dispose(); // Liberamos la memoria del notificador
-                    
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🎉 ¡Inyección masiva local completada con éxito! Todas las versiones están en tu servidor.'), 
-                        backgroundColor: Colors.green
-                      )
-                    );
-                  }
-                } catch (error) { }
-              }
-            ),
-          )
+          ),          
         ],
       ),
     );

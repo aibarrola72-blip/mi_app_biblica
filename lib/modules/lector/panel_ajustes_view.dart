@@ -3,9 +3,6 @@
 import 'package:flutter/material.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
-// import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'dart:convert';
-import 'migracion_service.dart';
 
 class PanelAjustesView extends StatefulWidget {
   final AjustesConfig ajustes;
@@ -120,37 +117,6 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                       ),
                       child: Column(
                         children: [
-                          ListTile(
-                            leading: const Icon(Icons.hub_rounded, color: Colors.purpleAccent),
-                            title: const Text(
-                              'MIGRAR REFERENCIAS DESDE RV1960.JSON', 
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.purpleAccent),
-                            ),
-                            subtitle: const Text('Procesa el HTML local en segundo plano e inyecta en Supabase.', style: TextStyle(fontSize: 12)),
-                            onTap: () async {
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (context) => const Center(child: CircularProgressIndicator()),
-                              );
-
-                              int insertados = await MigracionService.migrarReferenciasCruzadas(context);
-
-                              if (context.mounted) {
-                                Navigator.pop(context); // Cierra el indicador de carga
-                                if (insertados > 0) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('🎉 ¡Sincronizadas $insertados referencias con Isolate de forma exitosa!'), backgroundColor: Colors.green),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('⚠️ No se extrajeron referencias. Revisa el formato del archivo.'), backgroundColor: Colors.orange),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-
                           const Divider(height: 1),
                           ListTile(
                             leading: const Icon(Icons.cleaning_services_rounded, color: Colors.redAccent),

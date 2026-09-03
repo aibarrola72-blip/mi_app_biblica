@@ -458,6 +458,7 @@ class BibliaDatabaseHelper {
   // 🚀 COMPARADOR MULTI-VERSIÓN ASÍNCRONO ADAPTADO A CONTINGENCIA LOCAL
   Future<List<Map<String, dynamic>>> compararVersiculoEnVersiones(int libroId, int capitulo, int versiculo) async {
     try {
+      // 1. INTENTO REMOTO: Intenta traer todo desde Supabase en la nube
       final response = await _client
           .from('versiculos')
           .select('version_id, texto')
@@ -468,27 +469,38 @@ class BibliaDatabaseHelper {
       final resultadoNube = List<Map<String, dynamic>>.from(response);
       if (resultadoNube.isNotEmpty) return resultadoNube;
     } catch (e) {
-      print('Docker / Supabase Cloud offline para comparativa de versiones: $e');
+      print('Servidor Supabase Cloud offline o lento para comparativa. Activando escaneo local: $e');
     }
 
-    // Si estás desconectado, consulta de forma instantánea las dos versiones principales en tus archivos locales
+    // 2. CONTINGENCIA LOCAL EXTENDIDA: Si está desconectado o en el celular físico,
+    // recorremos secuencialmente todas las versiones registradas en tus activos locales.
     List<Map<String, dynamic>> comparacionesLocales = [];
-    final versionesAComparar = ['RV1960', 'NVI'];
+    
+    // 🚀 ARREGLO COMPLETO ACTUALIZADO ACORDE A TU PUBSPEC.YAML:
+    final versionesAComparar = [
+      'RV1960', 'NVI', 'DHH', 'DHHS', 'LBLA', 
+      'NBLA', 'NTV', 'RVA2015', 'RVC', 'TLA', 'TLAI', 'NVIC'
+    ];
 
     for (var version in versionesAComparar) {
       try {
+        // Reutiliza tu método optimizado de lectura híbrida/JSON local
         final capituloCompleto = await obtenerCapitulo(libroId, capitulo, versionId: version);
+        
         final versoEspecifico = capituloCompleto.firstWhere(
           (v) => v['versiculo'] == versiculo,
           orElse: () => {},
         );
+        
         if (versoEspecifico.isNotEmpty) {
           comparacionesLocales.add({
             'version_id': version,
             'texto': versoEspecifico['texto'],
           });
         }
-      } catch (_) {}
+      } catch (_) {
+        // Si el archivo JSON de alguna versión específica no existe o falla, se la salta sin romper las demás
+      }
     }
 
     return comparacionesLocales;
@@ -533,7 +545,59 @@ class BibliaDatabaseHelper {
     }
   }
 
+  /// 🚀 REGISTRO DE AVANCE DEVOCIONAL Y CÁLCULO DE RACHAS
+  Future<bool> marcarCapituloComoLeido({required int libroId, required int capitulo, required int totalVersiculos}) async {
+    try {
+      // 1. Guardar el registro del capítulo completado en Supabase
+      await _client.from('progreso_lectura').upsert({
+        'usuario_id': 'unico_pastor',
+        'libro_id': libroId,
+        'capitulo': capitulo,
+        'versiculos_leidos': totalVersiculos,
+        'fecha_lectura': DateTime.now().toIso8601String(),
+      }, onConflict: 'usuario_id, libro_id, capitulo');
+
+      // 2. ⚡ ALGORITMO DE RACHAS: Consultar el perfil para evaluar el hábito diario
+      final perfil = await _client.from('perfiles_pastor').select('racha_actual, ultima_fecha_lectura').eq('id', 'unico_pastor').maybeSingle();
+      
+      int nuevaRacha = 1;
+      final String fechaHoyStr = DateTime.now().toIso8601String().split('T')[0]; // "YYYY-MM-DD"
+
+      if (perfil != null) {
+        final int rachaActual = perfil['racha_actual'] ?? 0;
+        final String? ultimaFechaRaw = perfil['ultima_fecha_lectura'];
+
+        if (ultimaFechaRaw != null) {
+          final DateTime ultimaFecha = DateTime.parse(ultimaFechaRaw);
+          final DateTime hoy = DateTime.parse(fechaHoyStr);
+          final int diferenciaDias = hoy.difference(ultimaFecha).inDays;
+
+          if (diferenciaDias == 1) {
+            // Leyó ayer consecutivamente: ¡Incrementa la racha de fuego!
+            nuevaRacha = rachaActual + 1;
+          } else if (diferenciaDias == 0) {
+            // Ya leyó hoy: Mantiene la racha intacta
+            nuevaRacha = rachaActual;
+          }
+          // Si diferenciaDias > 1, el pastor rompió la racha y vuelve a iniciar en 1
+        }
+      }
+
+      // 3. Actualizar el marcador del perfil del pastor principal
+      await _client.from('perfiles_pastor').update({
+        'racha_actual': nuevaRacha,
+        'ultima_fecha_lectura': fechaHoyStr,
+      }).eq('id', 'unico_pastor');
+
+      return true;
+    } catch (e) {
+      print('Error al registrar avance devocional: $e');
+      return false;
+    }
+  }
+
   static const Map<int, int> _totalCapitulosPorLibro = {1: 50, 2: 40, 3: 27, 4: 36, 5: 34, 6: 24, 7: 21, 8: 4, 9: 31, 10: 24, 11: 22, 12: 25, 13: 29, 14: 36,15: 10, 16: 13, 17: 10, 18: 42, 19: 150, 20: 31, 21: 12, 22: 8, 23: 66, 24: 52, 25: 5, 26: 48, 27: 12,28: 14, 29: 3, 30: 9, 31: 1, 32: 4, 33: 7, 34: 3, 35: 3, 36: 3, 37: 2, 38: 14, 39: 4, 40: 28, 41: 16,42: 24, 43: 21, 44: 28, 45: 16, 46: 16, 47: 13, 48: 6, 49: 6, 50: 4, 51: 4, 52: 5, 53: 3, 54: 6, 55: 4,56: 3, 57: 1, 58: 13, 59: 5, 60: 5, 61: 3, 62: 5, 63: 1, 64: 1, 65: 1, 66: 22};
 
   int obtenerTotalCapitulos(int libroId) => _totalCapitulosPorLibro[libroId] ?? 1;
+
 }
