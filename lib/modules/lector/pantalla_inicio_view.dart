@@ -221,7 +221,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                             children: [
                               const Text('¡Saludos, siervo de Dios!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              Text('Que la gracia de nuestro Señor guíe su estudio el día de hoy.', style: TextStyle(color: Colors.blue.shade100, fontSize: 13)),
+                              Text('Que la gracia de nuestro Señor y su Espíritu Santo lo guíe e inspire en su estudio el día de hoy.', style: TextStyle(color: Colors.blue.shade100, fontSize: 13)),
                             ],
                           ),
                         ),

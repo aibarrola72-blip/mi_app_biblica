@@ -331,7 +331,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       final String nombreLibroRaw = match.group(1)!.trim();
       
       // 🚀 CLAVE DE LA OPTIMIZACIÓN: Sanitizamos el nombre capturado eliminando tildes y puntos
-      final String nombreLibroSanitizado = removerAcentos(nombreLibroRaw);
+      final String nombreLibroSanitizado = removerAcentos(nombreLibroRaw.toLowerCase());
       
       int libroId = 0;
 
@@ -345,11 +345,15 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       
       if (libroId == 0) continue;
       
+      final int capituloParseado = int.parse(match.group(2)!);
+      final int versiculoParseado = int.parse(match.group(3)!);
+      final String nombreCanonicoEstable = dbHelper.obtenerNombreLibro(libroId);
+      
       nuevosPasajes.add(PasajeBiblico(
         libroId: libroId, 
-        capitulo: int.parse(match.group(2)!),
-        versiculo: int.parse(match.group(3)!), 
-        textoOriginal: match.group(0)!,
+        capitulo: capituloParseado,
+        versiculo: versiculoParseado, 
+        textoOriginal: '$nombreCanonicoEstable $capituloParseado:$versiculoParseado',
       ));
     }
 

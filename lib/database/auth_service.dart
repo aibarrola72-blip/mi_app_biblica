@@ -1,3 +1,5 @@
+// lib/database/auth_service.dart
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,41 +7,57 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   final _supabase = Supabase.instance.client;
 
-  Future<void> iniciarSesionConGoogle() async {
-    if (kIsWeb) {
-      // 🌐 CONFIGURACIÓN WEB: Redirección directa y costo $0 de red en navegadores
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        // Al compilar con Vercel o Firebase, especifica la URL de tu página web de producción
-        redirectTo: 'https://vercel.app',
-      );
-    } else {
-      // 📱 CONFIGURACIÓN NATIVA ANDROID: Lanza la ventana emergente oficial del teléfono
-      // Reemplaza con tu Web Client ID obtenido en el panel de Google Cloud
-      const clientIdWeb = 'TU_OAUTH_WEB_CLIENT_://googleusercontent.com'; 
-      
-      final googleSignIn = GoogleSignIn(serverClientId: clientIdWeb);
-      final googleUser = await googleSignIn.signIn();
-      
-      if (googleUser != null) {
+  /// 🚀 FLUJO UNIFICADO DE INICIO DE SESIÓN CON GOOGLE
+  Future<bool> iniciarSesionConGoogle() async {
+    try {
+      if (kIsWeb) {
+        // 🌐 ENTORNO WEB: Autenticación nativa por redirección segura de Supabase
+        await _supabase.auth.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: 'https://github.io',
+        );
+        return true;
+      } else {
+        // 📱 ENTORNO MÓVIL: Consumo de diálogos de Google Sign-In nativos del celular
+        // Reemplaza por tu ID de cliente WEB de Google Cloud (requisito de Supabase para Android)
+        const webClientId = 'TU_ID_DE_CLIENTE_WEB_DE_GOOGLE_://googleusercontent.com';
+
+        final GoogleSignIn googleSignIn = GoogleSignIn(
+          serverClientId: webClientId,
+        );
+        
+        final googleUser = await googleSignIn.signIn();
+        if (googleUser == null) return false; // El pastor canceló el diálogo
+
         final googleAuth = await googleUser.authentication;
         final accessToken = googleAuth.accessToken;
         final idToken = googleAuth.idToken;
 
-        if (idToken != null && accessToken != null) {
-          // Intercambia los tokens nativos con Supabase para abrir la sesión de forma segura
-          await _supabase.auth.signInWithIdToken(
-            provider: OAuthProvider.google,
-            idToken: idToken,
-            accessToken: accessToken,
-          );
-        }
+        if (accessToken == null || idToken == null) return false;
+
+        // Inyectamos el ID Token directamente en el motor de seguridad de Supabase
+        final response = await _supabase.auth.signInWithIdToken(
+          provider: OAuthProvider.google,
+          idToken: idToken,
+          accessToken: accessToken,
+        );
+
+        return response.user != null;
       }
+    } catch (e) {
+      print('Fallo crítico en el inicio de sesión con Google: $e');
+      return false;
     }
   }
 
-  // Cerrar sesión global
+  /// 🚪 CERRAR SESIÓN (Limpia tokens de la memoria RAM y cookies web)
   Future<void> cerrarSesion() async {
     await _supabase.auth.signOut();
+    if (!kIsWeb) {
+      await GoogleSignIn().signOut();
+    }
   }
+
+  /// 🔑 EVALUADOR DE SESIÓN ACTIVA
+  User? get usuarioActual => _supabase.auth.currentUser;
 }

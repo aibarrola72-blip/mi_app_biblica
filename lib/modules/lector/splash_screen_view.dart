@@ -2,10 +2,10 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../database/biblia_db_helper.dart'; // Tu manejador de persistencia
-// import 'pantalla_inicio_view.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'controlador_navegacion.dart'; 
+import '../../database/biblia_db_helper.dart';
+import '../../database/auth_service.dart'; // Importa el nuevo servicio
+import 'controlador_navegacion.dart';
 
 class SplashScreenView extends StatefulWidget {
   const SplashScreenView({super.key});
@@ -17,122 +17,121 @@ class SplashScreenView extends StatefulWidget {
 class _SplashScreenViewState extends State<SplashScreenView> {
   double _opacidad = 0.0;
   String _estadoCarga = "Iniciando sistema...";
+  bool _mostrarBotonLogin = false; // Controla si se requiere autenticación
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    
-    // 🚀 EFECTO ENTRADA: Desvanecimiento visual de la UI
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _opacidad = 1.0);
     });
-
-    // 🚀 INICIALIZACIÓN PARALELA DE HARDWARE Y DISPARO
-    _ejecutarPrecargaYTransicion();
+    _ejecutarPrecargaYVerificacion();
   }
 
-  Future<void> _ejecutarPrecargaYTransicion() async {
+  Future<void> _ejecutarPrecargaYVerificacion() async {
     final int milisegundosInicio = DateTime.now().millisecondsSinceEpoch;
 
     try {
       final dbHelper = BibliaDatabaseHelper();
       if (kIsWeb) {
-      // 🚀 ENTORNO WEB: Inicialización rápida saltando SQLite
-      if (mounted) setState(() => _estadoCarga = "Cargando componentes web...");
-      dbHelper.obtenerMapaAbreviaturas();
-    } else {
-      // 1. Despertar la base de datos SQLite local y forzar onCreate/onUpgrade si aplica
-      if (mounted) setState(() => _estadoCarga = "Verificando base de datos offline...");
-      final dbHelper = BibliaDatabaseHelper();
-      final db = await dbHelper.databaseLocal;
-
-      // 2. Ejecutar una consulta ligera (PRAGMA o conteo rápido) para levantar los descriptores de archivo en la RAM
-      if (db != null) {
-        if (mounted) setState(() => _estadoCarga = "Optimizando índices de lectura...");
-        // Ejecuta un comando interno para calentar el Page Cache de SQLite
-        await db.rawQuery('PRAGMA synchronous = NORMAL;');
+        if (mounted) setState(() => _estadoCarga = "Configurando entorno web...");
+        dbHelper.obtenerMapaAbreviaturas();
+      } else {
+        if (mounted) setState(() => _estadoCarga = "Verificando base de datos offline...");
+        final db = await dbHelper.databaseLocal;
+        if (db != null) {
+          await db.rawQuery('PRAGMA synchronous = NORMAL;');
+        }
+        dbHelper.obtenerMapaAbreviaturas();
       }
+    } catch (_) {}
 
-      // 3. Calentar el diccionario estático de abreviaturas canónicas en la memoria RAM
-      if (mounted) setState(() => _estadoCarga = "Estructurando mapas relacionales...");
-      dbHelper.obtenerMapaAbreviaturas();
-    }
+    // 🚀 VALIDACIÓN DE SEGURIDAD EN TIEMPO REAL:
+    final usuarioLogueado = _authService.usuarioActual;
 
-    } catch (e) {
-      print('Aviso de contingencia silenciosa en precarga: $e');
-    }
-
-    // Calcular cuánto tiempo tomó la operación para cumplir los 2.5 segundos estéticos sin retrasar al pastor
     final int tiempoTranscurrido = DateTime.now().millisecondsSinceEpoch - milisegundosInicio;
-    final int tiempoRestanteEspera = 2500 - tiempoTranscurrido;
-
-    // Esperar el remanente si la CPU fue ultra rápida, garantizando la fluidez de la animación
+    final int tiempoRestanteEspera = 2200 - tiempoTranscurrido;
     if (tiempoRestanteEspera > 0) {
       await Future.delayed(Duration(milliseconds: tiempoRestanteEspera));
     }
 
     if (mounted) {
-      // Despacho final al centro de mandos destruyendo el Splash de la pila de memoria
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const ControladorNavegacion()),
-      );
+      if (usuarioLogueado != null) {
+        // Sesión activa: Salta directo al Tablero de Control
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ControladorNavegacion()),
+        );
+      } else {
+        // No hay sesión: Detiene el loader y muestra el botón de Google
+        setState(() {
+          _mostrarBotonLogin = true;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 134, 10, 10),
+      backgroundColor: const Color(0xFF1A73E8),
       body: Center(
         child: AnimatedOpacity(
           opacity: _opacidad,
-          duration: const Duration(milliseconds: 1000),
+          duration: const Duration(milliseconds: 800),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.auto_stories_rounded, 
-                  size: 72, 
-                  color: Color.fromARGB(255, 135, 10, 10),
-                ),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                child: const Icon(Icons.auto_stories_rounded, size: 64, color: Color(0xFF1A73E8)),
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Biblioteca Pastoral',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
+              const Text('Biblia del Predicador', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+              const SizedBox(height: 8),
+              Text(_mostrarBotonLogin ? "Requiere inicio de sesión para sincronizar" : _estadoCarga, style: TextStyle(color: Colors.blue.shade100, fontSize: 13, fontStyle: FontStyle.italic)),
+              const SizedBox(height: 48),
               
-              // 🚀 TEXTO DE ESTADO DINÁMICO: Informa al pastor qué se está procesando por debajo
-              Text(
-                _estadoCarga,
-                style: TextStyle(
-                  color: Colors.blue.shade100,
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
+              // 🚀 RENDERIZADO CONDICIONAL DE INTERFAZ DE ACCESO:
+              if (!_mostrarBotonLogin)
+                const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.0))
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black87,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      elevation: 2,
+                    ),
+                    onPressed: () async {
+                      bool exito = await _authService.iniciarSesionConGoogle();
+                      if (exito && context.mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ControladorNavegacion()),
+                        );
+                      }
+                    },
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Icono simulado de Google
+                        Container(
+                          width: 18, height: 18,
+                          decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF1A73E8)),
+                          child: const Center(child: Text('G', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('Acceder con su cuenta de Google', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 40),
-              const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.0,
-                ),
-              )
             ],
           ),
         ),
