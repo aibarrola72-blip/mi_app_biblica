@@ -14,13 +14,13 @@ class AuthService {
         // 🌐 ENTORNO WEB: Autenticación nativa por redirección segura de Supabase
         await _supabase.auth.signInWithOAuth(
           OAuthProvider.google,
-          redirectTo: 'https://github.io',
+          redirectTo: 'https://aibarrola72-blip.github.io/mi_app_biblica/',
         );
         return true;
       } else {
         // 📱 ENTORNO MÓVIL: Consumo de diálogos de Google Sign-In nativos del celular
         // Reemplaza por tu ID de cliente WEB de Google Cloud (requisito de Supabase para Android)
-        const webClientId = 'TU_ID_DE_CLIENTE_WEB_DE_GOOGLE_://googleusercontent.com';
+        const webClientId = '40946649762-pi30rq46mutt97ooitp4nam79ld72i3p.apps.googleusercontent.com';
 
         final GoogleSignIn googleSignIn = GoogleSignIn(
           serverClientId: webClientId,
