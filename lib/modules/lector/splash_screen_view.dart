@@ -75,7 +75,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A73E8),
+      backgroundColor: const Color.fromARGB(255, 129, 7, 7),
       body: Center(
         child: AnimatedOpacity(
           opacity: _opacidad,
@@ -86,7 +86,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                child: const Icon(Icons.auto_stories_rounded, size: 64, color: Color(0xFF1A73E8)),
+                child: const Icon(Icons.auto_stories_rounded, size: 64, color: Color.fromARGB(255, 129, 7, 7)),
               ),
               const SizedBox(height: 20),
               const Text('Biblia del Predicador', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1.1)),
