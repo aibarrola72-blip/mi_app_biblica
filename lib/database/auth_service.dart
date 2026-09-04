@@ -19,12 +19,17 @@ class AuthService {
         return true;
       } else {
         // 📱 ENTORNO MÓVIL: Consumo de diálogos de Google Sign-In nativos del celular
-        // Reemplaza por tu ID de cliente WEB de Google Cloud (requisito de Supabase para Android)
+        // 🚀 USAMOS TU ID DE CLIENTE WEB VERIFICADO QUE SÍ COMPILA:
         const webClientId = '40946649762-pi30rq46mutt97ooitp4nam79ld72i3p.apps.googleusercontent.com';
 
+        // 🚀 MEJORA DE CANDADO: Agregamos scopes obligatorios para forzar al celular a responder
         final GoogleSignIn googleSignIn = GoogleSignIn(
           serverClientId: webClientId,
+          scopes: ['email', 'profile'],
         );
+        
+        // Limpiamos cualquier rastro previo para evitar congelamientos si el pastor reintenta el login
+        await googleSignIn.signOut().catchError((_) => null);
         
         final googleUser = await googleSignIn.signIn();
         if (googleUser == null) return false; // El pastor canceló el diálogo
@@ -33,7 +38,10 @@ class AuthService {
         final accessToken = googleAuth.accessToken;
         final idToken = googleAuth.idToken;
 
-        if (accessToken == null || idToken == null) return false;
+        if (accessToken == null || idToken == null) {
+          print('🔴 Error: Los tokens de Google retornaron nulos en el hardware del dispositivo.');
+          return false;
+        }
 
         // Inyectamos el ID Token directamente en el motor de seguridad de Supabase
         final response = await _supabase.auth.signInWithIdToken(
@@ -54,7 +62,7 @@ class AuthService {
   Future<void> cerrarSesion() async {
     await _supabase.auth.signOut();
     if (!kIsWeb) {
-      await GoogleSignIn().signOut();
+      await GoogleSignIn().signOut().catchError((_) => null);
     }
   }
 
