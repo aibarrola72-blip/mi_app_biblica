@@ -47,11 +47,9 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
       // Pestaña 3: Buscador Global Concordancia
       PanelBusquedaGlobal(
         onPasajeSeleccionado: (pasaje) {
-          setState(() {
-            _pasajeMapeadoLector = pasaje;
-            // Al presionar un resultado, saltamos automáticamente al Lector (Pestaña 2)
-            _indiceSeleccionado = 2; 
-          });
+          // Tu BibliaDatabaseHelper guardará de forma automática el rastro.
+          // Al tocar un versículo del buscador, la barra cambia a la pestaña del Lector (Pestaña 2)
+          _saltarAPestana(2);
         },
       ),
     ];

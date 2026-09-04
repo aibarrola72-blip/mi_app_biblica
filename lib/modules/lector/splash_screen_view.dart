@@ -48,6 +48,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
     } catch (_) {}
 
     // 🚀 VALIDACIÓN DE SEGURIDAD EN TIEMPO REAL:
+    try {
     final usuarioLogueado = _authService.usuarioActual;
 
     final int tiempoTranscurrido = DateTime.now().millisecondsSinceEpoch - milisegundosInicio;
@@ -65,9 +66,17 @@ class _SplashScreenViewState extends State<SplashScreenView> {
         );
       } else {
         // No hay sesión: Detiene el loader y muestra el botón de Google
-        setState(() {
-          _mostrarBotonLogin = true;
-        });
+        setState(() => _mostrarBotonLogin = true);        
+      }
+
+    }
+    } catch (e) {
+      print("Aviso de bypass de seguridad: $e");
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const ControladorNavegacion()),
+        );
       }
     }
   }
