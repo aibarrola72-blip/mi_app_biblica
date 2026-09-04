@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
+import '../../database/auth_service.dart';
+import 'splash_screen_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
   final Function(int) onCambiarPestana;
@@ -19,7 +21,12 @@ class PantallaInicioView extends StatefulWidget {
 class _PantallaInicioViewState extends State<PantallaInicioView> {
   final AjustesConfig _ajustesGlobales = AjustesConfig();
   final BibliaDatabaseHelper _dbHelper = BibliaDatabaseHelper();
+  final AuthService _authService = AuthService();
   final _supabase = Supabase.instance.client;
+
+  // Variables de Perfil de Usuario de Google
+  String _nombrePastor = "Pastor";
+  String? _urlFotoPerfil;
 
   // Variables de Control de Estado y Analíticas
   bool _cargandoDashboard = true;
@@ -29,6 +36,10 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
   int _rachaDias = 0;
   int _totalCapitulosLeidos = 0;
   int _totalVersiculosLeidos = 0;
+
+  // 🚀 NUEVO: Variables para el Tiempo en el Altar
+  int _minutosSemanales = 0;
+  int _minutosMensuales = 0;
   
   // Punto 2: Bosquejos
   int _totalSermones = 0;
@@ -52,7 +63,19 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     super.initState();
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() { if (mounted) setState(() {}); });
+    _recuperarDatosPerfilGoogle();
     _cargarTodoElDashboardPastoral();
+  }
+
+  /// 🔐 CAPTURA DE METADATOS DE GOOGLE AUTH:
+  void _recuperarDatosPerfilGoogle() {
+    final usuario = _authService.usuarioActual;
+    if (usuario != null && usuario.userMetadata != null) {
+      setState(() {
+        _nombrePastor = usuario.userMetadata!['full_name'] ?? usuario.userMetadata!['name'] ?? "Pastor";
+        _urlFotoPerfil = usuario.userMetadata!['avatar_url'] ?? usuario.userMetadata!['picture'];
+      });
+    }
   }
 
   /// 🚀 CENTRALIZADOR ANALÍTICO: Dispara el escaneo multipanel
@@ -87,17 +110,34 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       }
 
       // Capítulos de la tabla relacional
-      final List<dynamic> registros = await _supabase.from('progreso_lectura').select('libro_id, capitulo, versiculos_leidos').eq('usuario_id', 'unico_pastor');
+      final List<dynamic> registros = await _supabase
+      .from('progreso_lectura')
+      .select('libro_id, capitulo, versiculos_leidos')
+      .eq('usuario_id', 'unico_pastor');
       int versoSuma = 0;
+      int capsSemanales = 0;
+      int capsMensuales = 0;
+
+      final DateTime ahora = DateTime.now();
+      final DateTime hace7Dias = ahora.subtract(const Duration(days: 7));
+      final DateTime hace30Dias = ahora.subtract(const Duration(days: 30));
       Map<int, List<int>> capitulosPorLibro = {};
 
       for (var reg in registros) {
         int libId = reg['libro_id'];
         int cap = reg['capitulo'];
         versoSuma += (reg['versiculos_leidos'] as num).toInt();
+        // 🚀 FILTRO CRONOLÓGICO: Evaluación de minutos en el Altar
+        if (reg['fecha_lectura'] != null) {
+          final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
+          if (fechaReg.isAfter(hace7Dias)) capsSemanales++;
+          if (fechaReg.isAfter(hace30Dias)) capsMensuales++;
+        }
 
         capitulosPorLibro.putIfAbsent(libId, () => []);
-        if (!capitulosPorLibro[libId]!.contains(cap)) capitulosPorLibro[libId]!.add(cap);
+        if (!capitulosPorLibro[libId]!.contains(cap)) {
+          capitulosPorLibro[libId]!.add(cap);
+        }
       }
 
       int librosTerminados = 0;
@@ -111,6 +151,8 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
 
       _totalCapitulosLeidos = registros.length;
       _totalVersiculosLeidos = versoSuma;
+      _minutosSemanales = capsSemanales * 4;
+      _minutosMensuales = capsMensuales * 4;
       _totalLibrosCompletados = librosTerminados;
       _librosFaltantes = pendientes;
     } catch (_) {}
@@ -179,7 +221,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       appBar: AppBar(
         backgroundColor: colorCard,
         elevation: 0.5,
-        title: Text('Tablero de Control Pastoral', style: TextStyle(color: colorTextoP, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text('Escritorio de estudio', style: TextStyle(color: colorTextoP, fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
           // 📡 PUNTO 4: LED Indicador de Red del Servidor
           Row(
@@ -193,10 +235,19 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                 ),
               ),
               const SizedBox(width: 6),
-              Text(_estaOnline ? 'Cloud' : 'Local Cache', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorTextoS)),
+              Text(_estaOnline ? 'Sincronizado' : 'Offline', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorTextoS)),
             ],
           ),
-          IconButton(icon: const Icon(Icons.sync_rounded), tooltip: 'Sincronizar todo', onPressed: _cargarTodoElDashboardPastoral),
+          IconButton(
+            icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent, size: 22),
+            tooltip: 'Cerrar sesión',
+            onPressed: () async {
+              await _authService.cerrarSesion();
+              if (mounted) {
+                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreenView()));
+              }
+            },
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -210,32 +261,62 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: esOscuro ? [const Color(0xFF1A237E), const Color(0xFF0D47A1)] : [Colors.blue.shade800, Colors.blue.shade600]),
+                      gradient: LinearGradient(
+                        colors: esOscuro ? [const Color(0xFF1A237E), const Color(0xFF0D47A1)] : [Colors.blue.shade800, Colors.blue.shade600]),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       children: [
+                        // Foto de Perfil Circular de Google Auth o Inicial por defecto
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: Colors.white,
+                          backgroundImage: _urlFotoPerfil != null ? NetworkImage(_urlFotoPerfil!) : null,
+                          child: _urlFotoPerfil == null 
+                              ? Icon(Icons.person_rounded, size: 28, color: Colors.blue.shade800) 
+                              : null,
+                        ),
+                        const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('¡Saludos, siervo de Dios!', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 4),
-                              Text('Que la gracia de nuestro Señor y su Espíritu Santo lo guíe e inspire en su estudio el día de hoy.', style: TextStyle(color: Colors.blue.shade100, fontSize: 13)),
+                              Text('¡Bienvenido, $_nombrePastor!', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 2),
+                              Text('Que la unción del Espíritu Santo guíe su bosquejo.', style: TextStyle(color: Colors.blue.shade100, fontSize: 13)),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
                           child: Row(
                             children: [
-                              const Icon(Icons.local_fire_department_rounded, color: Colors.amber, size: 24),
-                              const SizedBox(width: 4),
-                              Text('$_rachaDias días', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                              const Icon(Icons.local_fire_department_rounded, color: Colors.amber, size: 20),
+                              const SizedBox(width: 3),
+                              Text('$_rachaDias días', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                             ],
                           ),
                         )
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // 🚀 NUEVA TARJETA: Minutos Invertidos en el Altar (Hábitos Devocionales)
+                  Text('Tiempo Invertido en el Altar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: colorCard, borderRadius: BorderRadius.circular(14), 
+                      border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12)
+                    ),
+                    child: Row(
+                      children: [                          
+                        _construirItemMinutos('Esta Semana', '$_minutosSemanales', 'min', Colors.blue.shade600, colorTextoP ,colorTextoS),
+                            Container(width: 1, height: 45, color: esOscuro ? Colors.grey.shade800 : Colors.grey.shade200),
+                        _construirItemMinutos('Este Mes', '$_minutosMensuales', 'min', Colors.teal.shade600, colorTextoP ,colorTextoS),                  
                       ],
                     ),
                   ),
@@ -390,6 +471,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                               style: TextStyle(color: colorTextoP, fontSize: 13, fontWeight: FontWeight.w500)
                             ),
                             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.grey),
+                            onTap: () => widget.onCambiarPestana(2),
                           ),
                           separatorBuilder: (context, index) => const Divider(height: 1),
                         ),
@@ -400,14 +482,45 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
               ),
             );
           }
+  
+  // 🚀 WIDGET AUXILIAR: Construye la celda analítica de tiempo con métrica de sufijo chico
+  Widget _construirItemMinutos(String label, String valor, String sufijo, Color coloricon, Color colorTxP, Color colorTxS) {
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.hourglass_top_rounded, size: 16, color: coloricon),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: colorTxS)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(valor, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorTxP),),
+              const SizedBox(width: 2),
+              Text(sufijo, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorTxS),),
+            ],            
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _construirBarraProporcionalCitas(Color colorTextoS) {
-  int sumaTotal = _atCitasCount + _ntCitasCount;double porcentajeAt = sumaTotal > 0 ? 
-  (_atCitasCount / sumaTotal) : 0.5;double porcentajeNt = sumaTotal > 0 ? 
-  (_ntCitasCount / sumaTotal) : 0.5;
-  return Column(
-  children: [
-  Row(
+    int sumaTotal = _atCitasCount + _ntCitasCount;
+    double porcentajeAt = sumaTotal > 0 ? (_atCitasCount / sumaTotal) : 0.5;
+    double porcentajeNt = sumaTotal > 0 ? (_ntCitasCount / sumaTotal) : 0.5;
+    
+    return Column(
+      children: [
+        Row(
           children: [
             if (porcentajeAt > 0) 
             Expanded(
