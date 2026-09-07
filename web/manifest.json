@@ -1,12 +1,12 @@
 {
-    "name": "mi_app_biblica",
-    "short_name": "mi_app_biblica",
+    "name": "Biblia del Predicador",
+    "short_name": "Biblia del Predicador",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#4A0E17",
+    "theme_color": "#4A0E17",
+    "description": "Tu guía homilética y teológica para proclamar la Palabra con autoridad.",
+    "orientation": "portrait",
     "prefer_related_applications": false,
     "icons": [
         {
