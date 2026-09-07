@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
 import '../../database/auth_service.dart';
+import '../../database/canal_eventos.dart';
 import 'splash_screen_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
@@ -51,6 +52,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
   // Punto 3: Teología
   int _totalLibrosCompletados = 0;
   List<String> _librosFaltantes = [];
+  List<Map<String, dynamic>> _topLibrosMasPredicados = [];
   Map<int, int> _conteoColoresResaltados = {
     0xFFFFF59D: 0, // Amarillo Promesas
     0xFFA5D6A7: 0, // Verde Mandamientos
@@ -83,51 +85,34 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     if (!mounted) return;
     setState(() => _cargandoDashboard = true);
 
-    await _verificarEstadoServidorConectividad();
-    await _calcularMetricasDeLecturaYRacha();
-    await _analizarEcosistemaDeSermonesYTestamentos();
-    await _contarBalanceDeColoresResaltados();
-
-    if (mounted) setState(() => _cargandoDashboard = false);
-  }
-
-  Future<void> _verificarEstadoServidorConectividad() async {
     try {
-      // Intento ligero de ping HTTP a tu cluster
-      await _supabase.from('perfiles_pastor').select('id').limit(1).timeout(const Duration(milliseconds: 1200));
-      _estaOnline = true;
-    } catch (_) {
-      _estaOnline = false;
-    }
-  }
+      // 1. Verificar Conectividad
+      try {
+        await _supabase.from('perfiles_pastor').select('id').limit(1).timeout(const Duration(milliseconds: 1000));
+        _estaOnline = true;
+      } catch (_) { _estaOnline = false; }
 
-  Future<void> _calcularMetricasDeLecturaYRacha() async {
-    try {
-      // Datos del perfil remoto (Racha y Última fecha)
-      final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', 'unico_pastor').maybeSingle();
-      if (perfil != null) {
-        _rachaDias = perfil['racha_actual'] ?? 0;
-      }
+      final String usuarioUid = _supabase.auth.currentUser?.id ?? 'unico_pastor';
 
-      // Capítulos de la tabla relacional
-      final List<dynamic> registros = await _supabase
-      .from('progreso_lectura')
-      .select('libro_id, capitulo, versiculos_leidos')
-      .eq('usuario_id', 'unico_pastor');
-      int versoSuma = 0;
+      // 2. Cargar Racha e Historial Devocional Remoto
+      final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', usuarioUid).maybeSingle();
+      _rachaDias = perfil != null ? (perfil['racha_actual'] ?? 0) : 0;
+
+      final List<dynamic> registrosLectura = await _supabase.from('progreso_lectura').select('libro_id, capitulo, versiculos_leidos, fecha_lectura').eq('usuario_id', usuarioUid);
+      
+      int sumaVersos = 0;
       int capsSemanales = 0;
       int capsMensuales = 0;
-
-      final DateTime ahora = DateTime.now();
-      final DateTime hace7Dias = ahora.subtract(const Duration(days: 7));
-      final DateTime hace30Dias = ahora.subtract(const Duration(days: 30));
+      final ahora = DateTime.now();
+      final hace7Dias = ahora.subtract(const Duration(days: 7));
+      final hace30Dias = ahora.subtract(const Duration(days: 30));
       Map<int, List<int>> capitulosPorLibro = {};
 
-      for (var reg in registros) {
+      for (var reg in registrosLectura) {
         int libId = reg['libro_id'];
         int cap = reg['capitulo'];
-        versoSuma += (reg['versiculos_leidos'] as num).toInt();
-        // 🚀 FILTRO CRONOLÓGICO: Evaluación de minutos en el Altar
+        sumaVersos += (reg['versiculos_leidos'] as num).toInt();
+
         if (reg['fecha_lectura'] != null) {
           final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
           if (fechaReg.isAfter(hace7Dias)) capsSemanales++;
@@ -135,77 +120,81 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         }
 
         capitulosPorLibro.putIfAbsent(libId, () => []);
-        if (!capitulosPorLibro[libId]!.contains(cap)) {
-          capitulosPorLibro[libId]!.add(cap);
-        }
+        if (!capitulosPorLibro[libId]!.contains(cap)) capitulosPorLibro[libId]!.add(cap);
       }
 
       int librosTerminados = 0;
       List<String> pendientes = [];
-
       for (int i = 1; i <= 66; i++) {
-        int requeridos = _dbHelper.obtenerTotalCapitulos(i);
+        int req = _dbHelper.obtenerTotalCapitulos(i);
         int hechos = capitulosPorLibro[i]?.length ?? 0;
-        if (hechos >= requeridos) librosTerminados++; else pendientes.add(_dbHelper.obtenerNombreLibro(i));
+        if (hechos >= req) librosTerminados++; else pendientes.add(_dbHelper.obtenerNombreLibro(i));
       }
 
-      _totalCapitulosLeidos = registros.length;
-      _totalVersiculosLeidos = versoSuma;
+      _totalCapitulosLeidos = registrosLectura.length;
+      _totalVersiculosLeidos = sumaVersos;
       _minutosSemanales = capsSemanales * 4;
       _minutosMensuales = capsMensuales * 4;
       _totalLibrosCompletados = librosTerminados;
       _librosFaltantes = pendientes;
-    } catch (_) {}
-  }
 
-  Future<void> _analizarEcosistemaDeSermonesYTestamentos() async {
-    try {
-      final List<dynamic> sermones = await _dbHelper.obtenerHistorialBosquejos();
-      _totalSermones = sermones.length;
+      // 3. Cargar Ecosistema de Bosquejos y Calcular Top 3 Libros
+      final List<dynamic> bosquejos = await _dbHelper.obtenerHistorialBosquejos();
+      _totalSermones = bosquejos.length;
       
-      if (sermones.isNotEmpty) {
-        _ultimoSermonObjeto = sermones.first;
+      if (bosquejos.isNotEmpty) {
+        _ultimoSermonObjeto = bosquejos.first;
         _ultimoSermonTitulo = _ultimoSermonObjeto!['titulo'] ?? 'Sin título';
       }
 
-      // Análisis analítico estructural de citas AT vs NT
       int atCount = 0;
       int ntCount = 0;
+      Map<int, int> mapaFrecuenciaLibros = {};
       final regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
 
-      for (var s in sermones) {
-        String contenidoRaw = s['contenido_json'].toString();
+      for (var b in bosquejos) {
+        String contenidoRaw = b['contenido_json'].toString();
         final matches = regExp.allMatches(contenidoRaw);
         for (var m in matches) {
           int libroId = _dbHelper.obtenerLibroId(m.group(1)!);
-          if (libroId > 0 && libroId <= 39) atCount++;
-          if (libroId >= 40 && libroId <= 66) ntCount++;
+          if (libroId > 0) {
+            if (libroId <= 39) atCount++; else ntCount++;
+            mapaFrecuenciaLibros[libroId] = (mapaFrecuenciaLibros[libroId] ?? 0) + 1;
+          }
         }
       }
       _atCitasCount = atCount;
       _ntCitasCount = ntCount;
-    } catch (_) {}
-  }
 
-  Future<void> _contarBalanceDeColoresResaltados() async {
-    try {
+      // Ordenar y estructurar el Top 3 de libros base
+      var listaOrdenadaLibros = mapaFrecuenciaLibros.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      
+      _topLibrosMasPredicados = listaOrdenadaLibros.take(3).map((e) => {
+        'nombre': _dbHelper.obtenerNombreLibro(e.key),
+        'citas': e.value
+      }).toList();
+
+      // 4. 🎨 MOTOR CORREGIDO DE CONTEO DE COLORES DE RESALTADO NATIVO:
       final prefs = await SharedPreferences.getInstance();
       final String? resaltadosRaw = prefs.getString('biblioteca_resaltados');
-      
-      // Reiniciamos contadores
       _conteoColoresResaltados = {0xFFFFF59D: 0, 0xFFA5D6A7: 0, 0xFF9FA8DA: 0, 0xFFF48FB1: 0};
 
       if (resaltadosRaw != null) {
         final Map<String, dynamic> decoded = jsonDecode(resaltadosRaw);
         for (var valorColor in decoded.values) {
           int colorInt = valorColor as int;
-          // Normalizamos el mapeo al espectro de paleta base de 24 bits
-          if (_conteoColoresResaltados.containsKey(colorInt)) {
-            _conteoColoresResaltados[colorInt] = _conteoColoresResaltados[colorInt]! + 1;
-          }
+          // Normalizamos el mapeo para corregir los canales alfa de opacidad opacos de SharedPreferences
+          if (colorInt == Colors.yellow.value || colorInt == 0xFFFFF59D) _conteoColoresResaltados[0xFFFFF59D] = _conteoColoresResaltados[0xFFFFF59D]! + 1;
+          if (colorInt == Colors.green.value || colorInt == 0xFFA5D6A7) _conteoColoresResaltados[0xFFA5D6A7] = _conteoColoresResaltados[0xFFA5D6A7]! + 1;
+          if (colorInt == Colors.blue.value || colorInt == 0xFF9FA8DA) _conteoColoresResaltados[0xFF9FA8DA] = _conteoColoresResaltados[0xFF9FA8DA]! + 1;
+          if (colorInt == Colors.pink.value || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
         }
       }
-    } catch (_) {}
+
+    } catch (e) { print("Error cargando dashboard: $e"); }
+
+    if (mounted) setState(() => _cargandoDashboard = false);
   }
 
   @override
@@ -326,8 +315,14 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
 		              Text('Última actividad en el atril', 
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP)
                   ),
-                  const SizedBox(height: 8),InkWell(onTap: () => widget.onCambiarPestana(1), 
-                  // Cambia a pestaña Editor
+                  Text('Total: $_totalSermones', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorTextoS)),
+                  const SizedBox(height: 8),
+                  InkWell(onTap: () {
+                    if (_ultimoSermonObjeto != null) {
+                      CanalEventos().enviarBosquejoCompleto(_ultimoSermonObjeto!);
+                      widget.onCambiarPestana(1); // Nos movemos a la pestaña del Editor
+                    }
+                  }, // Cambia a pestaña Editor
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -353,7 +348,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                                 maxLines: 1, overflow: TextOverflow.ellipsis
                               ),
                               const SizedBox(height: 2),
-                              Text('Presione para continuar editando este bosquejo', 
+                              Text('Presione para cargar este bosquejo en el atril', 
                                 style: TextStyle(fontSize: 12, color: colorTextoS)
                               ),
                             ],
@@ -381,6 +376,44 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                     _construirBarraProporcionalCitas(colorTextoS),
                     ],
                     ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 🚀 NUEVA SECCIÓN VISUAL: Top 3 de Libros Más Predicados o Estudiados
+                    Text('Libros Base de su Ministerio (Top 3)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: colorCard, borderRadius: BorderRadius.circular(14), 
+                        border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12)
+                      ),
+                      child: _topLibrosMasPredicados.isEmpty
+                        ? const Center( child: Padding(padding: EdgeInsets.all(8.0),
+                            child: Text('Redacte sermones con citas para mostrar el Top 3...', 
+                            style: TextStyle(fontSize: 12, color: Colors.grey)
+                            )
+                          )
+                        )
+                            : Column(
+                              children: List.generate(_topLibrosMasPredicados.length, (index) {
+                                final libro = _topLibrosMasPredicados[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6.0),
+                            child: Row(                              
+                              children: [
+                                CircleAvatar(radius: 11, backgroundColor: Colors.blue.shade50, 
+                                child: Text('${index + 1}', 
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue))),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text('${libro['nombre']}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorTextoP)),
+                                ),
+                                Text('${libro['citas']} referencias', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                              ],
+                            )
+                          );
+                        })
+                      ),
                     ),
                     const SizedBox(height: 16),
 
