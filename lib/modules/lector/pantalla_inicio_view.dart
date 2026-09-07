@@ -92,13 +92,16 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         _estaOnline = true;
       } catch (_) { _estaOnline = false; }
 
-      final String usuarioUid = _supabase.auth.currentUser?.id ?? 'unico_pastor';
+      final String usuarioUid = _supabase.auth.currentUser?.id ?? '';
 
       // 2. Cargar Racha e Historial Devocional Remoto
       final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', usuarioUid).maybeSingle();
       _rachaDias = perfil != null ? (perfil['racha_actual'] ?? 0) : 0;
 
-      final List<dynamic> registrosLectura = await _supabase.from('progreso_lectura').select('libro_id, capitulo, versiculos_leidos, fecha_lectura').eq('usuario_id', usuarioUid);
+      final List<dynamic> registrosLectura = await _supabase.
+      from('progreso_lectura')
+      .select('libro_id, capitulo, versiculos_leidos, fecha_lectura')
+      .eq('usuario_id', usuarioUid);
       
       int sumaVersos = 0;
       int capsSemanales = 0;

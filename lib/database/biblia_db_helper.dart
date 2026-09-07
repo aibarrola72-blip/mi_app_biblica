@@ -26,7 +26,7 @@ class BibliaDatabaseHelper {
     try {
       final rutaDb = await sql.getDatabasesPath();
       _dbMobi = await sql.openDatabase(
-        '$rutaDb/biblioteca_pastoral_v3.db', // 🚀 v3 fuerza la recreación limpia de todas las tablas offline
+        '$rutaDb/biblioteca_pastoral_v4.db', // 🚀 v4 fuerza la recreación limpia de todas las tablas offline
         version: 1,
         onCreate: (db, version) async {
           // 1. Tabla espejo de Versículos
@@ -533,65 +533,115 @@ class BibliaDatabaseHelper {
   // Trae los bosquejos guardados desde Supabase
   Future<List<Map<String, dynamic>>> obtenerHistorialBosquejos() async {
     try {
+      final String? usuarioUid = _client.auth.currentUser?.id;
+      if (usuarioUid == null) return [];
+
       final response = await _client
       .from('bosquejos')
-      .select('id, titulo, contenido_json, updated_at')
-      .order('updated_at', ascending: false)
-      .limit(30);
-      
+      .select('*')
+      .eq('usuario_id', usuarioUid)
+      .order('updated_at', ascending: false);
+            
       return List<Map<String, dynamic>>.from(response);
-    } catch (e) { 
+    } catch (e) { print('Error al obtener historial multiusuario: $e');
       return []; 
     }
   }
 
-  /// 🚀 REGISTRO DE AVANCE DEVOCIONAL Y CÁLCULO DE RACHAS
+  // 🚀 A: MODIFICAR EL MÉTODO DE GUARDAR / ACTUALIZAR BOSQUEJO
+  Future<bool> guardarBosquejo({required String id, required String titulo, required String contenidoJson}) async {
+    try {
+      final String? usuarioUid = _client.auth.currentUser?.id;
+      if (usuarioUid == null) return false;
+
+      await _client.from('bosquejos').upsert({
+        'id': id,
+        'usuario_id': usuarioUid, // 🚀 SE INYECTA EL ID AUTOMÁTICO DEL PASTOR
+        'titulo': titulo,
+        'contenido_json': contenidoJson,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      return true;
+    } catch (e) {
+      print('Error al guardar bosquejo multiusuario: $e');
+      return false;
+    }
+  }
+
+  /// 🚀 REGISTRO DE AVANCE DEVOCIONAL Y CÁLCULO DE RACHAS  
   Future<bool> marcarCapituloComoLeido({required int libroId, required int capitulo, required int totalVersiculos}) async {
     try {
-      // 1. Guardar el registro del capítulo completado en Supabase
+      // 🚀 LA CLAVE MULTIUSAURIO: Captura el UUID automático real generado por Google/Supabase
+      final String? usuarioUid = _client.auth.currentUser?.id;
+      
+      // Si por alguna razón el token expiró o no hay sesión, abortamos para proteger la base de datos
+      if (usuarioUid == null) {
+        print('🔴 Intento de guardado devocional bloqueado: No hay una sesión de usuario activa.');
+        return false;
+      }
+
+      final DateTime ahoraLocal = DateTime.now();
+      final String fechaHoyPlana = "${ahoraLocal.year}-${ahoraLocal.month.toString().padLeft(2, '0')}-${ahoraLocal.day.toString().padLeft(2, '0')}";
+
+      // Guardamos el progreso del capítulo inyectando el UUID dinámico
       await _client.from('progreso_lectura').upsert({
-        'usuario_id': 'unico_pastor',
+        'usuario_id': usuarioUid, // 🚀 ID Automático asignado
         'libro_id': libroId,
         'capitulo': capitulo,
         'versiculos_leidos': totalVersiculos,
-        'fecha_lectura': DateTime.now().toIso8601String(),
+        'fecha_lectura': ahoraLocal.toIso8601String(),
       }, onConflict: 'usuario_id, libro_id, capitulo');
 
-      // 2. ⚡ ALGORITMO DE RACHAS: Consultar el perfil para evaluar el hábito diario
-      final perfil = await _client.from('perfiles_pastor').select('racha_actual, ultima_fecha_lectura').eq('id', 'unico_pastor').maybeSingle();
-      
+      // Evaluamos el perfil del pastor para calcular la racha usando el UUID
+      final perfil = await _client.from('perfiles_pastor').select('racha_actual, ultima_fecha_lectura').eq('id', usuarioUid).maybeSingle();
       int nuevaRacha = 1;
-      final String fechaHoyStr = DateTime.now().toIso8601String().split('T')[0]; // "YYYY-MM-DD"
 
       if (perfil != null) {
         final int rachaActual = perfil['racha_actual'] ?? 0;
         final String? ultimaFechaRaw = perfil['ultima_fecha_lectura'];
 
         if (ultimaFechaRaw != null) {
-          final DateTime ultimaFecha = DateTime.parse(ultimaFechaRaw);
-          final DateTime hoy = DateTime.parse(fechaHoyStr);
-          final int diferenciaDias = hoy.difference(ultimaFecha).inDays;
+          final DateTime fechaUltimaLectura = DateTime.parse("$ultimaFechaRaw 00:00:00");
+          final DateTime fechaHoyCorte = DateTime.parse("$fechaHoyPlana 00:00:00");
+          final int diferenciaDiasCalendario = fechaHoyCorte.difference(fechaUltimaLectura).inDays;
 
-          if (diferenciaDias == 1) {
-            // Leyó ayer consecutivamente: ¡Incrementa la racha de fuego!
+          if (diferenciaDiasCalendario == 1) {
             nuevaRacha = rachaActual + 1;
-          } else if (diferenciaDias == 0) {
-            // Ya leyó hoy: Mantiene la racha intacta
+          } else if (diferenciaDiasCalendario == 0) {
             nuevaRacha = rachaActual;
+          } else {
+            nuevaRacha = 1;
           }
-          // Si diferenciaDias > 1, el pastor rompió la racha y vuelve a iniciar en 1
         }
       }
 
-      // 3. Actualizar el marcador del perfil del pastor principal
+      // Actualizamos el marcador del perfil del pastor utilizando su UUID
       await _client.from('perfiles_pastor').update({
         'racha_actual': nuevaRacha,
-        'ultima_fecha_lectura': fechaHoyStr,
-      }).eq('id', 'unico_pastor');
+        'ultima_fecha_lectura': fechaHoyPlana,
+      }).eq('id', usuarioUid);
 
       return true;
     } catch (e) {
-      print('Error al registrar avance devocional: $e');
+      print('Error en cálculo de racha multiusuario: $e');
+      return false;
+    }
+  }
+
+  // 🚀 C: MODIFICAR EL MÉTODO DE ELIMINAR BOSQUEJO (Doble candado de seguridad)
+  Future<bool> eliminarBosquejo(String id) async {
+    try {
+      final String? usuarioUid = _client.auth.currentUser?.id;
+      if (usuarioUid == null) return false;
+
+      await _client
+          .from('bosquejos')
+          .delete()
+          .eq('id', id)
+          .eq('usuario_id', usuarioUid); // 🚀 SEGURIDAD: Evita que un usuario borre un sermón ajeno
+      return true;
+    } catch (e) {
+      print('Error al eliminar bosquejo: $e');
       return false;
     }
   }
@@ -599,5 +649,50 @@ class BibliaDatabaseHelper {
   static const Map<int, int> _totalCapitulosPorLibro = {1: 50, 2: 40, 3: 27, 4: 36, 5: 34, 6: 24, 7: 21, 8: 4, 9: 31, 10: 24, 11: 22, 12: 25, 13: 29, 14: 36,15: 10, 16: 13, 17: 10, 18: 42, 19: 150, 20: 31, 21: 12, 22: 8, 23: 66, 24: 52, 25: 5, 26: 48, 27: 12,28: 14, 29: 3, 30: 9, 31: 1, 32: 4, 33: 7, 34: 3, 35: 3, 36: 3, 37: 2, 38: 14, 39: 4, 40: 28, 41: 16,42: 24, 43: 21, 44: 28, 45: 16, 46: 16, 47: 13, 48: 6, 49: 6, 50: 4, 51: 4, 52: 5, 53: 3, 54: 6, 55: 4,56: 3, 57: 1, 58: 13, 59: 5, 60: 5, 61: 3, 62: 5, 63: 1, 64: 1, 65: 1, 66: 22};
 
   int obtenerTotalCapitulos(int libroId) => _totalCapitulosPorLibro[libroId] ?? 1;
+
+  // Añade este método al final de la clase BibliaDatabaseHelper en lib/database/biblia_db_helper.dart
+
+  /// 📊 MOTOR ANALÍTICO: Calcula los 3 libros más predicados analizando las citas del editor
+  Future<List<Map<String, dynamic>>> obtenerTopLibrosEstudiados() async {
+    try {
+      final List<Map<String, dynamic>> bosquejos = await obtenerHistorialBosquejos();
+      if (bosquejos.isEmpty) return [];
+
+      final Map<int, int> mapaFrecuencia = {};
+      
+      // Expresión regular robusta para interceptar libros con acentos y números de capítulos
+      final RegExp regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
+
+      for (var b in bosquejos) {
+        // Analizamos tanto el cuerpo JSON como el título del bosquejo por seguridad
+        final String contenidoRaw = b['contenido_json'].toString();
+        final String tituloRaw = b['titulo'].toString();
+        final String textoAnalizar = '$tituloRaw $contenidoRaw';
+
+        final matches = regExp.allMatches(textoAnalizar);
+        for (var m in matches) {
+          final int libroId = obtenerLibroId(m.group(1)!);
+          if (libroId > 0) {
+            mapaFrecuencia[libroId] = (mapaFrecuencia[libroId] ?? 0) + 1;
+          }
+        }
+      }
+
+      if (mapaFrecuencia.isEmpty) return [];
+
+      // Ordenamos las entradas del mapa de mayor a menor frecuencia de referencias
+      final listaOrdenada = mapaFrecuencia.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
+      // Mapeamos los 3 primeros resultados asignándoles su nombre canónico
+      return listaOrdenada.take(3).map((e) => {
+        'nombre': obtenerNombreLibro(e.key),
+        'citas': e.value
+      }).toList();
+    } catch (e) {
+      print('Aviso en el cálculo del Top 3 de libros base: $e');
+      return [];
+    }
+  }
 
 }
