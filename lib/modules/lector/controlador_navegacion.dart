@@ -1,6 +1,8 @@
 // lib/modules/home/controlador_navegacion.dart
 
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../database/ajustes_config.dart';
 import '../lector/pantalla_inicio_view.dart';
 import '../bosquejos/vista_editor.dart';
@@ -18,10 +20,13 @@ class ControladorNavegacion extends StatefulWidget {
 class _ControladorNavegacionState extends State<ControladorNavegacion> {
   int _indiceSeleccionado = 0;
   final AjustesConfig _ajustesGlobales = AjustesConfig();
+  final _supabase = Supabase.instance.client;
 
   // Controladores de estado persistentes compartidos en memoria
   PasajeBiblico? _pasajeMapeadoLector;
 
+  // 🚀 ESCUCHADOR DE ENLACE DE SEGURIDAD
+  late final StreamSubscription<AuthState> _subAutenticacion;
   // 🚀 ARQUITECTURA DE INDIZACIÓN: Mantiene vivas las pantallas en segundo plano
   late final List<Widget> _pantallas;
 
@@ -31,6 +36,14 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() {
       if (mounted) setState(() {});
+    });
+
+    // 🚀 BLINDAJE PARA EL CELULAR FÍSICO: Escucha los Deeplinks de Google y Supabase en tiempo real
+    _subAutenticacion = _supabase.auth.onAuthStateChange.listen((data) {
+      final Session? sesion = data.session;
+      if (sesion != null && _indiceSeleccionado == 0) {
+        print("🔑 Sesión reactivada con éxito en el hardware: ${sesion.user.email}");
+      }
     });
 
     // Inicializamos el pool de aplicaciones fijas
@@ -53,6 +66,12 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
         },
       ),
     ];
+  }
+
+  @override
+  void dispose() {
+    _subAutenticacion.cancel(); // Cancela la subscripción al salir para evitar fugas en la RAM
+    super.dispose();
   }
 
   void _saltarAPestana(int indice) {
