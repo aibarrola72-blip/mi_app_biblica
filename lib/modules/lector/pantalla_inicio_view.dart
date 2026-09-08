@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
 import '../../database/auth_service.dart';
-import '../../database/canal_eventos.dart';
+// import '../../database/canal_eventos.dart';
 import 'splash_screen_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
@@ -322,7 +322,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                   const SizedBox(height: 8),
                   InkWell(onTap: () {
                     if (_ultimoSermonObjeto != null) {
-                      CanalEventos().enviarBosquejoCompleto(_ultimoSermonObjeto!);
+                      _dbHelper.sermonEnTransito= _ultimoSermonObjeto!;
                       widget.onCambiarPestana(1); // Nos movemos a la pestaña del Editor
                     }
                   }, // Cambia a pestaña Editor

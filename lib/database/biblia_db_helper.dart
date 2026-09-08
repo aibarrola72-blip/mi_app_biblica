@@ -13,7 +13,7 @@ class BibliaDatabaseHelper {
 
   final _client = Supabase.instance.client;
   dynamic _dbMobi; // Usamos tipo dinámico para blindar la compilación en Web
-
+  Map<String, dynamic>? sermonEnTransito;
   // CACHÉ EN MEMORIA GLOBAL: Funciona tanto en Web como en Móvil a velocidad luz
   final Map<String, List<Map<String, dynamic>>> _cacheCapitulos = {};
   final Map<String, List<Map<String, dynamic>>> _cacheReferencias = {};
