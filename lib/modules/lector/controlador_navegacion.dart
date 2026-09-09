@@ -97,7 +97,7 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
         selectedIndex: _indiceSeleccionado,
         onDestinationSelected: _saltarAPestana,
         backgroundColor: esOscuro ? const Color(0xFF1E1E1E) : Colors.white,
-        indicatorColor: Colors.blue.withOpacity(0.2),
+        indicatorColor: Colors.blue.withValues(alpha: 0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_rounded),

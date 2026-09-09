@@ -84,7 +84,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       dbHelper.sermonEnTransito = null;
     } else {
         // Si entró desde el menú de la barra normal, inicializa el editor en limpio/vacío
-        _tituloController.clear();
+        _tituloController.text = 'Título del sermon';
         _controller.document = quill.Document();
     }
   
@@ -122,6 +122,37 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     _predicacionController?.dispose();
     WakelockPlus.disable();
     super.dispose();
+  }
+
+  // 🚀 AGREGA ESTE MÉTODO EN LA CLASE DE ESTO DE TU EDITOR (_EditorScreenState)
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    final dbHelper = BibliaDatabaseHelper();
+    
+    // Si venimos de la pantalla de inicio y se inyectó un sermón en el buzón
+    if (dbHelper.sermonEnTransito != null) {
+      final bosquejo = dbHelper.sermonEnTransito!;
+      final String titulo = bosquejo['titulo'] ?? 'Sin título';
+      final String contenidoJsonRaw = bosquejo['contenido_json'] ?? '';
+
+      // Asignamos los datos de forma inmediata y segura
+      _tituloController.text = titulo;
+
+      try {
+        final docJson = jsonDecode(contenidoJsonRaw);
+        _controller.document = quill.Document.fromJson(docJson);
+      } catch (_) {
+        _controller.document = quill.Document();
+      }
+
+      // 🧹 LIMPIEZA OBLIGATORIA: Vaciamos el tránsito para evitar bucles infinitos
+      dbHelper.sermonEnTransito = null;
+      
+      // Forzamos un rediseño rápido para pintar las letras del sermón cargado
+      setState(() {});
+    }
   }
 
   void _cargarHistorial() async {

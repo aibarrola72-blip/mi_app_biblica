@@ -23,6 +23,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   String _versionSeleccionada = 'RV1960';
   int _libroSeleccionado = 1; 
   int _capituloSeleccionado = 1;
+  int? _versiculoInicio;
+  int? _versiculoFin;
   
   List<Map<String, dynamic>> _versiculos = [];
   bool _cargando = true;
@@ -304,23 +306,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                   _ajustesGlobales.cambiarModoOscuroLectura(!esOscuro);
                 },
               ),
-          
-              IconButton(
-                icon: Icon(
-                  _modoSeleccionMultiple ? Icons.playlist_add_check_rounded : Icons.playlist_add_rounded,
-                  color: _modoSeleccionMultiple ? Colors.green : Colors.blueGrey,
-                ),
-                tooltip: 'Activar Selección Múltiple',
-                onPressed: () {
-                  setState(() {
-                    _modoSeleccionMultiple = !_modoSeleccionMultiple;
-                    if (!_modoSeleccionMultiple) {
-                      _versiculosSeleccionados.clear();
-                    }
-                  });                  // 
-                },
-              ),
-          
+                        
               IconButton(
                 icon: const Icon(Icons.text_fields_rounded),
                 tooltip: 'Achicar letra',
@@ -403,89 +389,113 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         ],
       ),
       
-      // Botones flotantes inferiores dinámicos (Aparecen solo en selección múltiple)
-      bottomNavigationBar: _modoSeleccionMultiple && _versiculosSeleccionados.isNotEmpty
+      // Botones flotantes inferiores dinámicos (Aparecen automáticamente al seleccionar un rango)
+      bottomNavigationBar: _versiculoInicio != null
           ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            decoration: BoxDecoration(color: colorAppBarFondo,
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],),
-            child: SafeArea(
-              child: Wrap(
-                spacing: 10.0,runSpacing: 10.0,alignment: WrapAlignment.spaceEvenly,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [Text('${_versiculosSeleccionados.length} marcados',
-                style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 14),),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white, 
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                  icon: const Icon(Icons.share, size: 18),label: const Text('Compartir', 
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),onPressed: () {
-                    final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                    final List<int> listaOrdenada = _versiculosSeleccionados.toList()..sort();
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color: colorAppBarFondo,
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],
+              ),
+              child: SafeArea(
+                child: Wrap(
+                  spacing: 10.0,
+                  runSpacing: 10.0,
+                  alignment: WrapAlignment.spaceEvenly,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // 1. Mostrar dinámicamente la cita exacta seleccionada
+                    Builder(
+                      builder: (context) {
+                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
+                        final String textoCita = _versiculoFin == null || _versiculoInicio == _versiculoFin
+                            ? '$nombreLibro $_capituloSeleccionado:$_versiculoInicio'
+                            : '$nombreLibro $_capituloSeleccionado:$_versiculoInicio-$_versiculoFin';
+                        return Text(
+                          textoCita,
+                          style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 14),
+                        );
+                      },
+                    ),
                     
-                    StringBuffer textoCompletoBloque = StringBuffer();                    
-                    // Extraemos y concatenamos los textos de cada versículo seleccionado
-                    for (int numV in listaOrdenada) {
-                      final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV);
-                      textoCompletoBloque.write('[$numV] ${vData['texto']}\n');
-                    }
+                    // 2. Botón Compartir (Extrae el bloque continuo de texto)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal, 
+                        foregroundColor: Colors.white, 
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.share, size: 18),
+                      label: const Text('Compartir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
+                        // Determinamos el inicio y fin correctos matemáticamente
+                        final int inicio = _versiculoInicio!;
+                        final int fin = _versiculoFin ?? _versiculoInicio!;
+                        final int menor = inicio < fin ? inicio : fin;
+                        final int mayor = inicio > fin ? inicio : fin;
 
-                    final int primerVerso = listaOrdenada.first;
-                    final int ultimoVerso = listaOrdenada.last;
-                    final String citaRango = primerVerso == ultimoVerso 
-                        ? '$nombreLibro $_capituloSeleccionado:$primerVerso'
-                        : '$nombreLibro $_capituloSeleccionado:$primerVerso-$ultimoVerso';
+                        StringBuffer textoCompletoBloque = StringBuffer();                    
+                        // Recorremos el rango continuo entre el menor y el mayor seleccionado
+                        for (int numV = menor; numV <= mayor; numV++) {
+                          final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV, orElse: () => {});
+                          if (vData.isNotEmpty) {
+                            textoCompletoBloque.write('[$numV] ${vData['texto']}\n');
+                          }
+                        }
 
-                    final String mensajeFinal = '$textoCompletoBloque— $citaRango ($_versionSeleccionada)';
+                        final String citaRango = menor == mayor 
+                            ? '$nombreLibro $_capituloSeleccionado:$menor'
+                            : '$nombreLibro $_capituloSeleccionado:$menor-$mayor';
+
+                        final String mensajeFinal = '$textoCompletoBloque— $citaRango ($_versionSeleccionada)';
+                        
+                        Share.share(mensajeFinal);
+                        setState(() { _versiculoInicio = null; _versiculoFin = null; });
+                      },
+                    ),
                     
-                    Share.share(mensajeFinal); // Comparte la cadena completa estructurada
-                    setState(() { _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
-                  },
-                ),
-                
-                ElevatedButton.icon(style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A73E8), 
-                  foregroundColor: Colors.white, 
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                  icon: const Icon(Icons.send_and_archive, size: 18),
-                  label: const Text('Insertar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);                 
-                    // Ordenamos matemáticamente el Set de versículos de menor a mayor
-                    final List<int> listaOrdenada = _versiculosSeleccionados.toList()..sort();
-                    final int primerVerso = listaOrdenada.first;
-                    final int ultimoVerso = listaOrdenada.last;
+                    // 3. Botón Insertar (Envía el string exacto al Canal de Eventos del Editor)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A73E8), 
+                        foregroundColor: Colors.white, 
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.send_and_archive, size: 18),
+                      label: const Text('Insertar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);                 
+                        final int inicio = _versiculoInicio!;
+                        final int fin = _versiculoFin ?? _versiculoInicio!;
+                        final int menor = inicio < fin ? inicio : fin;
+                        final int mayor = inicio > fin ? inicio : fin;
+                        
+                        final String citaRango = menor == mayor
+                            ? '$nombreLibro $_capituloSeleccionado:$menor'
+                            : '$nombreLibro $_capituloSeleccionado:$menor-$mayor';
+                        
+                        CanalEventos().enviarCitaAlEditor(citaRango);
+                        setState(() { _versiculoInicio = null; _versiculoFin = null; });
+                      },
+                    ),
                     
-                    String citaRango = '';
-                    if (primerVerso == ultimoVerso) {
-                      citaRango = '$nombreLibro $_capituloSeleccionado:$primerVerso';
-                    } else {
-                      citaRango = '$nombreLibro $_capituloSeleccionado:$primerVerso-$ultimoVerso';
-                    }
-                    // Transmitimos el rango al canal. El editor recibirá el puntero y tu Lector Contextual
-                    // del panel derecho reaccionará abriendo el capítulo completo al procesar la primera cifra.
-                    CanalEventos().enviarCitaAlEditor(citaRango);
-                    // Limpiamos los estados de selección múltiple tras el envío
-                    setState(() {
-                      _versiculosSeleccionados.clear();
-                      _modoSeleccionMultiple = false;
-                    });
-                  },
+                    // 4. Botón Pintar (Llama a tu paleta de colores)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green, 
+                        foregroundColor: Colors.white, 
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.color_lens, size: 18),
+                      label: const Text('Pintar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      onPressed: _mostrarPaletaColoresRango, // Asegúrate de adaptar esta función si usaba la lista vieja
+                    ),
+                  ],
                 ),
-                
-                ElevatedButton.icon(style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green, 
-                  foregroundColor: Colors.white, 
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                  icon: const Icon(Icons.color_lens, size: 18),
-                  label: const Text('Pintar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                  onPressed: _mostrarPaletaColoresMultiple,
-                ),
-              ],
-            ),
-          ),
-          )
-          :null,
+              ),
+            )
+          : null,
             
             // 🚀 NUEVO FLOATING ACTION BUTTON: Aparece si el pastor saltó mediante un enlace 🔗
           floatingActionButton: !_modoSeleccionMultiple && _historialNavegacionRegreso.isNotEmpty ? FloatingActionButton.extended(
@@ -524,7 +534,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                             children: [
                               Text('CAPÍTULO $_capituloSeleccionado',style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra + 4, // Crece proporcionalmente según los ajustes
                               fontWeight: FontWeight.bold,letterSpacing: 2.0,color: const Color(0xFF1A73E8),fontFamily: 'sans-serif',),),
-                              const SizedBox(height: 6),Container(width: 45,height: 2.5,color: Colors.blueGrey.withOpacity(0.3),
+                              const SizedBox(height: 6),Container(width: 45,height: 2.5,color: Colors.blueGrey.withValues(alpha: 0.3),
                               ),
                             ],
                           ),
@@ -605,63 +615,89 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       final v = _versiculos[index -1];
                       final numVerso = v['versiculo'] ?? 1;
                       final llaveResaltado = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numVerso';
-                      final int? colorHex = _resaltadosLocales[llaveResaltado];
-                      final bool estaEnSeleccionTemporal = _versiculosSeleccionados.contains(numVerso);                      
+                      final int? colorHex = _resaltadosLocales[llaveResaltado];                                            
                       // 🚀 NUEVO: Evalúa si este versículo específico tiene enlaces mapeados
                       final bool tieneReferencia = _versiculosConReferenciasCargados.contains(numVerso);
 
                       return GestureDetector(
-                        // ... Tu onTap existente de selección múltiple e individual
                         onTap: () {
-                          if (_modoSeleccionMultiple) {
-                            setState(() {
-                              if (estaEnSeleccionTemporal) {
-                                _versiculosSeleccionados.remove(numVerso);
+                          setState(() {
+                            // 1. Si no hay nada seleccionado, marcamos el inicio
+                            if (_versiculoInicio == null) {
+                              _versiculoInicio = numVerso;
+                            } 
+                            // 2. Si toca el mismo versículo que ya era el inicio y no hay fin, se desmarca todo
+                            else if (_versiculoInicio == numVerso && _versiculoFin == null) {
+                              _versiculoInicio = null;
+                            } 
+                            // 3. Si ya hay un inicio, extendemos o creamos el rango
+                            else {
+                              // Si toca un número menor al inicio actual, ese número se convierte en el nuevo inicio
+                              if (numVerso < _versiculoInicio!) {
+                                _versiculoInicio = numVerso;
                               } else {
-                                _versiculosSeleccionados.add(numVerso);
+                                // De lo contrario, este número extiende o define el final del rango
+                                _versiculoFin = numVerso;
                               }
-                            });
-                            } else {
-                              _mostrarPaletaColoresIndividual(numVerso);
                             }
-                          },
+                          });
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 🚀 NUEVO: Si tiene conector, muestra el eslabón interactivo antes del número
-                              if (tieneReferencia && !_modoSeleccionMultiple)
+                              // 🚀 Muestra el eslabón interactivo si tiene referencias y no hay selección activa
+                              if (tieneReferencia && _versiculoInicio == null)
                                 const Padding(
-                                    padding: EdgeInsets.only(right: 6.0, top: 3.0),
-                                    child: Icon(Icons.link, size: 16, color: Colors.blue),
-                                  ),
-                                Expanded(
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra, 
-                                    color: colorTextoBiblico, 
-                                    height: 1.45 + ((_ajustesGlobales.tamanoLetra - 14.0) * 0.0125), 
-                                    fontFamily: _ajustesGlobales.tipoLetra == 'monospace' 
-                                            ? 'monospace' 
-                                            : (_ajustesGlobales.tipoLetra == 'serif' ? 'serif' : 'sans-serif'),
-                                      ),
-                                    children: [
-                                      TextSpan(
-                                        text: '$numVerso ', 
-                                        style: TextStyle(fontWeight: FontWeight.bold, 
-                                        color: Color(0xFF1A73E8), fontSize: _ajustesGlobales.tamanoLetra -3)
-                                      ),
-                                      TextSpan(
-                                        text: v['texto'] ?? '',
+                                  padding: EdgeInsets.only(right: 6.0, top: 3.0),
+                                  child: Icon(Icons.link, size: 16, color: Colors.blue),
+                                ),
+                              Expanded(
+                                child: Builder(
+                                  builder: (context) {
+                                    // Calculamos matemáticamente si este versículo específico está dentro del rango seleccionado
+                                    bool estaEnRangoTemporal = false;
+                                    if (_versiculoInicio != null) {
+                                      final int inicio = _versiculoInicio!;
+                                      final int fin = _versiculoFin ?? _versiculoInicio!;
+                                      final int menor = inicio < fin ? inicio : fin;
+                                      final int mayor = inicio > fin ? inicio : fin;
+                                      estaEnRangoTemporal = numVerso >= menor && numVerso <= mayor;
+                                    }
+
+                                    return RichText(
+                                      text: TextSpan(
                                         style: TextStyle(
-                                          backgroundColor: estaEnSeleccionTemporal
-                                              ? Colors.blue.withOpacity(0.25) 
-                                              : (colorHex != null ? Color(colorHex).withOpacity(0.35) : Colors.transparent),
+                                          fontSize: _ajustesGlobales.tamanoLetra, 
+                                          color: colorTextoBiblico, 
+                                          height: 1.45 + ((_ajustesGlobales.tamanoLetra - 14.0) * 0.0125), 
+                                          fontFamily: _ajustesGlobales.tipoLetra == 'monospace' 
+                                              ? 'monospace' 
+                                              : (_ajustesGlobales.tipoLetra == 'serif' ? 'serif' : 'sans-serif'),
                                         ),
+                                        children: [
+                                          TextSpan(
+                                            text: '$numVerso ', 
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold, 
+                                              color: const Color(0xFF1A73E8), 
+                                              fontSize: _ajustesGlobales.tamanoLetra - 3,
+                                            ),
+                                          ),
+                                          TextSpan(
+                                            text: v['texto'] ?? '',
+                                            style: TextStyle(
+                                              // Prioridad al sombreado de selección azul fluido, si no, respeta el color pintado de la BD
+                                              backgroundColor: estaEnRangoTemporal
+                                                  ? Colors.blue.withValues(alpha: 0.25) 
+                                                  : (colorHex != null ? Color(colorHex).withValues(alpha: 0.35) : Colors.transparent),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 ),
                               ),
                             ],
@@ -913,47 +949,49 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     return fragmentos;
   }
 
-  // MODO INDIVIDUAL: Pinta un solo texto
-  void _mostrarPaletaColoresIndividual(int versiculo) {
+  // 🎨 MODO UNIFICADO: Sombrea desde un solo versículo hasta un rango completo
+  void _mostrarPaletaColoresRango() {
+    // Determinamos el rango matemático seguro
+    final int inicio = _versiculoInicio ?? 1;
+    final int fin = _versiculoFin ?? inicio;
+    final int menor = inicio < fin ? inicio : fin;
+    final int mayor = inicio > fin ? inicio : fin;
+
+    // Título dinámico para la paleta según el rango seleccionado
+    final String tituloPaleta = menor == mayor 
+        ? 'Sombrear versículo $menor:' 
+        : 'Sombrear bloque del $menor al $mayor:';
+
     _mostrarPaletaBase(
-      'Sombrear versículo $versiculo:', 
+      tituloPaleta, 
       (colorValue) {
-        _alternarResaltadoVersiculo(versiculo, colorValue);
+        // Aplicamos el color a todo el rango continuo
+        for (int verso = menor; verso <= mayor; verso++) {
+          _alternarResaltadoVersiculoEnLote(verso, colorValue);
+        }
+        _limpiarSeleccionYGuardar();
         Navigator.pop(context); 
       },
       () {
-        _alternarResaltadoVersiculo(versiculo, 0); 
+        // Borramos el sombreado (color 0) a todo el rango continuo
+        for (int verso = menor; verso <= mayor; verso++) {
+          _alternarResaltadoVersiculoEnLote(verso, 0); 
+        }
+        _limpiarSeleccionYGuardar();
         Navigator.pop(context); 
       },
-      versiculoIndividual: versiculo, // 🚀 PASAMOS EL ID DEL VERSO AL CONSTRUCTOR
+      // Pasamos el ID del verso individual solo si es un único versículo seleccionado
+      versiculoIndividual: menor == mayor ? menor : null, 
     );
   }
 
-  // 🚀 MODO MULTIPLE: Pinta todos los versículos seleccionados al mismo tiempo
-  void _mostrarPaletaColoresMultiple() {
-    _mostrarPaletaBase(
-      'Selecciona un color para el bloque marcado:', 
-      (colorValue) {
-        // Recorremos el bloque seleccionado y aplicamos el color a cada uno
-        for (var verso in _versiculosSeleccionados) {
-          _alternarResaltadoVersiculoEnLote(verso, colorValue);
-        }
-        setState(() {
-          _versiculosSeleccionados.clear(); // Limpiamos la selección
-          _modoSeleccionMultiple = false;   // Desactivamos el modo
-        });
-        Navigator.pop(context); // Cierra la paleta de bloque
-        _guardarResaltadosEnDisco(); // Guarda la biblioteca de forma permanente
-      },
-      () {
-        for (var verso in _versiculosSeleccionados) {
-          _alternarResaltadoVersiculoEnLote(verso, 0); // Borra el sombreado en bloque
-        }
-        setState(() { _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
-        Navigator.pop(context);
-        _guardarResaltadosEnDisco();
-      },
-    );
+  // Función auxiliar para limpiar la pantalla y persistir en base de datos
+  void _limpiarSeleccionYGuardar() {
+    setState(() {
+      _versiculoInicio = null;
+      _versiculoFin = null;
+    });
+    _guardarResaltadosEnDisco(); // Guarda la biblioteca de forma permanente
   }
 
   // MÉTODO BASE: Eleva la paleta sobre los botones de Android de forma limpia

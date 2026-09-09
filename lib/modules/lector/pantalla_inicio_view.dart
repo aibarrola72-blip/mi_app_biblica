@@ -131,7 +131,11 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       for (int i = 1; i <= 66; i++) {
         int req = _dbHelper.obtenerTotalCapitulos(i);
         int hechos = capitulosPorLibro[i]?.length ?? 0;
-        if (hechos >= req) librosTerminados++; else pendientes.add(_dbHelper.obtenerNombreLibro(i));
+        if (hechos >= req) {
+          librosTerminados++;
+        } else {
+          pendientes.add(_dbHelper.obtenerNombreLibro(i));
+        }
       }
 
       _totalCapitulosLeidos = registrosLectura.length;
@@ -161,7 +165,11 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         for (var m in matches) {
           int libroId = _dbHelper.obtenerLibroId(m.group(1)!);
           if (libroId > 0) {
-            if (libroId <= 39) atCount++; else ntCount++;
+            if (libroId <= 39) {
+              atCount++;
+            } else {
+              ntCount++;
+            }
             mapaFrecuenciaLibros[libroId] = (mapaFrecuenciaLibros[libroId] ?? 0) + 1;
           }
         }
@@ -223,7 +231,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _estaOnline ? Colors.green : Colors.orange,
-                  boxShadow: [BoxShadow(color: _estaOnline ? Colors.green.withOpacity(0.4) : Colors.orange.withOpacity(0.4), blurRadius: 4, spreadRadius: 1)],
+                  boxShadow: [BoxShadow(color: _estaOnline ? Colors.green.withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
                 ),
               ),
               const SizedBox(width: 6),
@@ -282,7 +290,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.18), borderRadius: BorderRadius.circular(10)),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
                           child: Row(
                             children: [
                               const Icon(Icons.local_fire_department_rounded, color: Colors.amber, size: 20),
@@ -315,53 +323,68 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                   const SizedBox(height: 16),
 
                   // 📝 PUNTO 2: Acceso Rápido al Último Sermón Modificado
-		              Text('Última actividad en el atril', 
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP)
+                  Text(
+                    'Última actividad en el atril', 
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP),
                   ),
                   Text('Total: $_totalSermones', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorTextoS)),
                   const SizedBox(height: 8),
-                  InkWell(onTap: () {
-                    if (_ultimoSermonObjeto != null) {
-                      _dbHelper.sermonEnTransito= _ultimoSermonObjeto!;
-                      widget.onCambiarPestana(1); // Nos movemos a la pestaña del Editor
-                    }
-                  }, // Cambia a pestaña Editor
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                    color: colorCard, borderRadius: BorderRadius.circular(14), 
-                    border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12)
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10), 
-                          decoration: BoxDecoration(color: Colors.orange.withOpacity(0.12), 
-                            borderRadius: BorderRadius.circular(10)
-                          ), 
-                          child: const Icon(
-                          Icons.description_rounded, color: Colors.orange)
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_ultimoSermonTitulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorTextoP), 
-                                maxLines: 1, overflow: TextOverflow.ellipsis
-                              ),
-                              const SizedBox(height: 2),
-                              Text('Presione para cargar este bosquejo en el atril', 
-                                style: TextStyle(fontSize: 12, color: colorTextoS)
-                              ),
-                            ],
+
+                  InkWell(
+                    // Si no hay sermón, el botón se deshabilita automáticamente
+                    onTap: _ultimoSermonObjeto == null ? null : () {
+                      _dbHelper.sermonEnTransito = _ultimoSermonObjeto!;
+                      widget.onCambiarPestana(1); // Mover al Editor
+                    }, 
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorCard, 
+                        borderRadius: BorderRadius.circular(14), 
+                        border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10), 
+                            decoration: BoxDecoration(
+                              color: (_ultimoSermonObjeto == null ? Colors.grey : Colors.orange).withOpacity(0.12), 
+                              borderRadius: BorderRadius.circular(10),
+                            ), 
+                            child: Icon(
+                              Icons.description_rounded, 
+                              color: _ultimoSermonObjeto == null ? Colors.grey : Colors.orange,
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
-                      ],
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _ultimoSermonObjeto == null ? 'No hay sermones guardados' : _ultimoSermonTitulo, 
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: colorTextoP), 
+                                  maxLines: 1, 
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _ultimoSermonObjeto == null 
+                                      ? 'Crea un sermón nuevo en el editor' 
+                                      : 'Presione para cargar este bosquejo en el atril', 
+                                  style: TextStyle(fontSize: 12, color: colorTextoS),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_ultimoSermonObjeto != null)
+                            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                        ],
+                      ),
                     ),
                   ),
-                  ),
+
                   const SizedBox(height: 16),
 
                     // 📊 PUNTO 2 (B): Gráfico de Balance Doctrinal por Testamento

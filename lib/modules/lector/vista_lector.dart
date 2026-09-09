@@ -142,7 +142,7 @@ class _VistaLectorBibliaState extends State<VistaLectorBiblia> {
                             TextSpan(text: '${v['versiculo']} ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                             TextSpan(
                               text: v['texto'] ?? '', 
-                              style: TextStyle(backgroundColor: esResaltado ? Colors.yellow.withOpacity(0.4) : Colors.transparent),
+                              style: TextStyle(backgroundColor: esResaltado ? Colors.yellow.withValues(alpha: 0.4) : Colors.transparent),
                             ),
                           ],
                         ),
