@@ -542,76 +542,94 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       );
                     }                     // Colchón elástico inferior
                   
-                  // CASO 2: ÍTEM FINAL (Transformado en botón verificador de progreso devocional)
-                  if (index == _versiculos.length + 1) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                      child: Column(
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1A73E8),
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size.fromHeight(50), // Botón amplio fácil de pulsar
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 1,
-                            ),
-                            icon: const Icon(Icons.check_circle_outline_rounded, size: 22),
-                            label: const Text(
-                              'Marcar capítulo como leído', 
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.3)
-                            ),
-                            onPressed: () async {
-                              // Desplegar un micro-loader de red circular flotante
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (context) => const Center(child: CircularProgressIndicator()),
-                              );
+                    // CASO 2: ÍTEM FINAL (Transformado en botón verificador de progreso devocional)
+                    if (index == _versiculos.length + 1) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+                        child: Column(
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1A73E8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(50), // Botón amplio fácil de pulsar
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 1,
+                              ),
+                              icon: const Icon(Icons.check_circle_outline_rounded, size: 22),
+                              label: const Text(
+                                'Marcar capítulo como leído', 
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 0.3)
+                              ),
+                              onPressed: () async {
+                                // Desplegar un micro-loader de red circular flotante
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => const Center(child: CircularProgressIndicator()),
+                                );
 
-                              // Despachamos el conteo exacto de versículos de este capítulo al helper
-                              bool exito = await _dbHelper.marcarCapituloComoLeido(
-                                libroId: _libroSeleccionado,
-                                capitulo: _capituloSeleccionado,
-                                totalVersiculos: _versiculos.length,
-                              );
+                                // Despachamos el conteo exacto de versículos de este capítulo al helper
+                                bool exito = await _dbHelper.marcarCapituloComoLeido(
+                                  libroId: _libroSeleccionado,
+                                  capitulo: _capituloSeleccionado,
+                                  totalVersiculos: _versiculos.length,
+                                );
 
-                              if (context.mounted) {
-                                Navigator.pop(context); // Cierra el loader de red
+                                if (context.mounted) {
+                                  Navigator.pop(context); // Cierra el loader de red
 
-                                if (exito) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('🎉 ¡Progreso guardado! Su racha y estadísticas han sido actualizadas.'),
-                                      backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 3),
-                                    ),
-                                  );
-                                  
-                                  // Salto inteligente automático: Brinca al siguiente capítulo de la Biblia por comodidad
-                                  setState(() {
-                                    _capituloSeleccionado++;
-                                  });
-                                  _cargarResaltadosYTexto();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('⚠️ No se pudo sincronizar en la nube. Se guardará localmente.'),
-                                      backgroundColor: Colors.orange,
-                                    ),
-                                  );
+                                  if (exito) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('🎉 ¡Progreso guardado! Su racha y estadísticas han sido actualizadas.'),
+                                        backgroundColor: Colors.green,
+                                        duration: Duration(seconds: 3),
+                                      ),
+                                    );
+                                    
+                                    // 🚀 MOTOR DE SALTO INTELIGENTE:
+                                    setState(() {
+                                      // Consulta cuántos capítulos tiene el libro actual en tu base de datos
+                                      final int totalCapitulosDelLibro = _dbHelper.obtenerTotalCapitulos(_libroSeleccionado);
+
+                                      if (_capituloSeleccionado < totalCapitulosDelLibro) {
+                                        // Caso A: Aún quedan capítulos en este libro. Avanzamos al siguiente.
+                                        _capituloSeleccionado++;
+                                      } else {
+                                        // Caso B: Llegamos al límite (ej: Salmo 150). Saltamos al siguiente libro.
+                                        if (_libroSeleccionado < 66) { 
+                                          _libroSeleccionado++;
+                                          _capituloSeleccionado = 1; // Reinicia al capítulo 1 (ej: Proverbios 1)
+                                        } else {
+                                          // Caso C: Llegamos a Apocalipsis 22 (Fin de la Biblia). Reinicia al Génesis.
+                                          _libroSeleccionado = 1; 
+                                          _capituloSeleccionado = 1;
+                                        }
+                                      }
+                                    });
+
+                                    // Recargamos el contenido del nuevo capítulo/libro saltado
+                                    _cargarResaltadosYTexto();
+                                    
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('⚠️ No se pudo sincronizar en la nube. Se guardará localmente.'),
+                                        backgroundColor: Colors.orange,
+                                      ),
+                                    );
+                                  }
                                 }
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 60), // Mantiene el colchón elástico inferior para liberar la barra
-                        ],
-                      ),
-                    );
-                  }
+                              },
+                            ),
+                            const SizedBox(height: 60), // Mantiene el colchón elástico inferior para liberar la barra
+                          ],
+                        ),
+                      );
+                    }
 
                   // CASO 3: RENDERIZADO NORMAL DE VERSÍCULOS (Ajustamos el índice restando el desfase del título)
-
                       final v = _versiculos[index -1];
                       final numVerso = v['versiculo'] ?? 1;
                       final llaveResaltado = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numVerso';

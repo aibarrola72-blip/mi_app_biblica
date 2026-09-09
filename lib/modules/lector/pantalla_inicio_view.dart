@@ -406,40 +406,105 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                     const SizedBox(height: 16),
 
                     // 🚀 NUEVA SECCIÓN VISUAL: Top 3 de Libros Más Predicados o Estudiados
-                    Text('Libros Base de su Ministerio (Top 3)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP)),
+                    Text(
+                      'Libros Base de su Ministerio (Top 3)', 
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: colorTextoP),
+                    ),
                     const SizedBox(height: 8),
+
                     Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: colorCard, borderRadius: BorderRadius.circular(14), 
-                        border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12)
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorCard, 
+                        borderRadius: BorderRadius.circular(14), 
+                        border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12),
                       ),
                       child: _topLibrosMasPredicados.isEmpty
-                        ? const Center( child: Padding(padding: EdgeInsets.all(8.0),
-                            child: Text('Redacte sermones con citas para mostrar el Top 3...', 
-                            style: TextStyle(fontSize: 12, color: Colors.grey)
-                            )
-                          )
-                        )
-                            : Column(
-                              children: List.generate(_topLibrosMasPredicados.length, (index) {
-                                final libro = _topLibrosMasPredicados[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6.0),
-                            child: Row(                              
-                              children: [
-                                CircleAvatar(radius: 11, backgroundColor: Colors.blue.shade50, 
-                                child: Text('${index + 1}', 
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue))),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text('${libro['nombre']}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorTextoP)),
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(12.0),
+                                child: Text(
+                                  'Redacte sermones con citas para activar el motor analítico...', 
+                                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
                                 ),
-                                Text('${libro['citas']} referencias', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-                              ],
+                              ),
                             )
-                          );
-                        })
-                      ),
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                // Conseguimos la cifra del libro número 1 como base máxima para las proporciones
+                                final int maxCitas = _topLibrosMasPredicados.first['citas'] ?? 1;
+                                // El ancho máximo disponible en pantalla para las barras de progreso
+                                final double anchoMaximoBarra = constraints.maxWidth * 0.55; 
+
+                                return Column(
+                                  children: List.generate(_topLibrosMasPredicados.length, (index) {
+                                    final libro = _topLibrosMasPredicados[index];
+                                    final int citasActuales = libro['citas'] ?? 0;
+                                    
+                                    // Cálculo matemático de la proporción (Regla de tres simple)
+                                    final double factorProporcional = maxCitas > 0 ? (citasActuales / maxCitas) : 0.0;
+                                    final double anchoCalculado = anchoMaximoBarra * factorProporcional;
+
+                                    // Asignamos una paleta de colores degradada según el podio corporativo
+                                    final Color colorBarra = index == 0 
+                                        ? const Color(0xFF1A73E8) // Azul Rey para el primer lugar
+                                        : index == 1 
+                                            ? Colors.teal.shade400  // Teal para el segundo
+                                            : Colors.blueGrey.shade400; // Gris azulado para el tercero
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                      child: Row(                              
+                                        children: [
+                                          // Indicador circular estilizado
+                                          CircleAvatar(
+                                            radius: 11, 
+                                            backgroundColor: colorBarra.withOpacity(0.12), 
+                                            child: Text(
+                                              '${index + 1}', 
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorBarra),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          
+                                          // Nombre del libro bíblico
+                                          Expanded(
+                                            child: Text(
+                                              '${libro['nombre']}', 
+                                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: colorTextoP),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          
+                                          // 📊 BARRA DE PROGRESO PROPORCIONAL: 
+                                          // El contenedor crece horizontalmente de forma exacta según los datos analizados
+                                          Container(
+                                            height: 8,
+                                            width: anchoCalculado < 8 ? 8 : anchoCalculado, // Evita anchos colapsados a cero
+                                            decoration: BoxDecoration(
+                                              color: colorBarra,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          
+                                          // Contador numérico de referencias
+                                          SizedBox(
+                                            width: 90,
+                                            child: Text(
+                                              '$citasActuales ${citasActuales == 1 ? 'referencia' : 'referencias'}', 
+                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorTextoS),
+                                              textAlign: TextAlign.end,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                );
+                              },
+                            ),
                     ),
                     const SizedBox(height: 16),
 

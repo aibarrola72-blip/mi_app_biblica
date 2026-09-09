@@ -53,60 +53,31 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
 
 
   @override
-  void initState() {
-    super.initState();
+void initState() {
+  super.initState();
 
-    // En tu lib/modules/editor/vista_editor_bosquejo.dart  
-    final dbHelper = BibliaDatabaseHelper();
+  // 1. Escuchadores de eventos y cambios de texto
+  _controller.addListener(_manejarCambioTextoConDebounce);
+  _suscripcionEventosBiblia = CanalEventos().alRecibirCita.listen((String cita) {
+    _inyectarCitaEnCursor(cita);
+  });
 
-    // 🚀 MOTOR DE INTERCEPCIÓN DE ACCESO RÁPIDO:
-    // Verificamos si el pastor presionó la tarjeta en la pantalla de inicio
-    if (dbHelper.sermonEnTransito != null) {
-      final bosquejo = dbHelper.sermonEnTransito!;
-      final String titulo = bosquejo['titulo'] ?? 'Sin título';
-      final String contenidoJsonRaw = bosquejo['contenido_json'] ?? '';
-
-      // 1. Cargamos el título en tu controlador de texto de la cabecera
-      _tituloController.text = titulo;
-
-      // 2. Descodificamos el Delta de Quill de forma segura en el lienzo
-      try {
-        final docJson = jsonDecode(contenidoJsonRaw);
-         _controller.document = quill.Document.fromJson(docJson);
-        
-      } catch (_) {
-        // Si el formato es plano o falla el JSON, inicializa un documento limpio
-        _controller.document = quill.Document();
-      }
-
-      // 3. 🧹 LIMPIEZA OBLIGATORIA: Vaciamos el buzón para que en las próximas aperturas 
-      // normales del menú no se quede repitiendo el mismo sermón viejo en bucle.
-      dbHelper.sermonEnTransito = null;
-    } else {
-        // Si entró desde el menú de la barra normal, inicializa el editor en limpio/vacío
-        _tituloController.text = 'Título del sermon';
-        _controller.document = quill.Document();
-    }
+  // 2. Carga de ajustes visuales y base de datos
+  _ajustesGlobales.cargarAjustes(); // Carga las preferencias del disco duro
+  _ajustesGlobales.addListener(() => setState(() {})); // Escucha cambios de fuente/tamaño
+  _cargarHistorial();
   
+  // 3. 🚀 Sincronización automática en segundo plano cuando vuelve el internet
+  Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> resultados) {
+    if (resultados.isNotEmpty && resultados.first != ConnectivityResult.none) {
+      _sincronizarBorradoresLocalesAnube();
+    }
+  });
 
+  // 4. Ejecutamos la verificación inicial por si se abrió por primera vez con un sermón
+  verificarYCarGarSermonEnTransito();
+}
 
-    _controller.addListener(_manejarCambioTextoConDebounce);
-    _ajustesGlobales.cargarAjustes(); // Carga las preferencias del disco duro
-    // Escucha cuando el usuario cambia un ajuste para redibujar el editor
-    _ajustesGlobales.addListener(() => setState(() {})); 
-    _cargarHistorial();
-    
-    // 🚀 ACTIVAR SINCRONIZACIÓN AUTOMÁTICA EN SEGUNDO PLANO
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> resultados) {
-      if (resultados.isNotEmpty && resultados.first != ConnectivityResult.none) {
-        _sincronizarBorradoresLocalesAnube();
-      }
-    });
-
-    _suscripcionEventosBiblia = CanalEventos().alRecibirCita.listen((String cita) {
-      _inyectarCitaEnCursor(cita);
-    });
-  }
 
   @override
   void dispose() {
@@ -152,6 +123,42 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       
       // Forzamos un rediseño rápido para pintar las letras del sermón cargado
       setState(() {});
+    }
+  }
+
+  // 🚀 MOTOR DE INTERCEPCIÓN DE ACCESO RÁPIDO (MÉTODO PÚBLICO):
+  void verificarYCarGarSermonEnTransito() {
+    final dbHelper = BibliaDatabaseHelper();
+
+    if (dbHelper.sermonEnTransito != null) {
+      final bosquejo = dbHelper.sermonEnTransito!;
+      final String titulo = bosquejo['titulo'] ?? 'Sin título';
+      final String contenidoJsonRaw = bosquejo['contenido_json'] ?? '';
+
+      setState(() {
+        // 1. Cargamos el título en tu controlador de texto de la cabecera
+        _tituloController.text = titulo;
+
+        // 2. Descodificamos el Delta de Quill de forma segura en el lienzo
+        try {
+          final docJson = jsonDecode(contenidoJsonRaw);
+          _controller.document = quill.Document.fromJson(docJson);
+        } catch (_) {
+          // Si el formato es plano o falla el JSON, inicializa un documento limpio
+          _controller.document = quill.Document();
+        }
+      });
+
+      // 3. 🧹 LIMPIEZA OBLIGATORIA: Vaciamos el buzón para evitar bucles repetitivos
+      dbHelper.sermonEnTransito = null;
+    } else {
+      // Si entró de forma normal y los controladores están vacíos, colocamos el marcador por defecto
+      if (_tituloController.text.isEmpty || _tituloController.text == 'Título del sermon') {
+        setState(() {
+          _tituloController.text = 'Título del sermon';
+          _controller.document = quill.Document();
+        });
+      }
     }
   }
 

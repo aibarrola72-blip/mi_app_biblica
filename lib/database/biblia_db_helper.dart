@@ -661,15 +661,22 @@ class BibliaDatabaseHelper {
       final Map<int, int> mapaFrecuencia = {};
       
       // Expresión regular robusta para interceptar libros con acentos y números de capítulos
-      final RegExp regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
+      // final RegExp regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
 
       for (var b in bosquejos) {
         // Analizamos tanto el cuerpo JSON como el título del bosquejo por seguridad
+        // 🚀 RECOMENDACIÓN: Modifica esta línea dentro de tu ciclo for para blindar el análisis:
         final String contenidoRaw = b['contenido_json'].toString();
         final String tituloRaw = b['titulo'].toString();
-        final String textoAnalizar = '$tituloRaw $contenidoRaw';
 
-        final matches = regExp.allMatches(textoAnalizar);
+        // Reemplazamos caracteres de formato JSON comunes por espacios para no romper el RegExp
+        final String textoLimpio = '$tituloRaw $contenidoRaw'
+            .replaceAll(RegExp(r'[\{\}\[\]\(\)\"\,\\]'), ' ');
+
+        // Y tu RegExp puede buscar de forma más libre en el texto limpio:
+        final RegExp regExp = RegExp(r'([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+)\s*:\s*([0-9]+)');
+        final matches = regExp.allMatches(textoLimpio);
+
         for (var m in matches) {
           final int libroId = obtenerLibroId(m.group(1)!);
           if (libroId > 0) {
