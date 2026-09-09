@@ -66,7 +66,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() { if (mounted) setState(() {}); });
     _recuperarDatosPerfilGoogle();
-    _cargarTodoElDashboardPastoral();
+    _refrescarDatosDesdeNube();
   }
 
   /// 🔐 CAPTURA DE METADATOS DE GOOGLE AUTH:
@@ -80,70 +80,74 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     }
   }
 
-  /// 🚀 CENTRALIZADOR ANALÍTICO: Dispara el escaneo multipanel
-  Future<void> _cargarTodoElDashboardPastoral() async {
+    // 🚀 CENTRALIZADOR ANALÍTICO CON INTERCEPCIÓN PULL-TO-REFRESH
+  Future<void> _refrescarDatosDesdeNube() async {
     if (!mounted) return;
     setState(() => _cargandoDashboard = true);
 
     try {
-      // 1. Verificar Conectividad
+      // 1. Verificar Conectividad Real
       try {
         await _supabase.from('perfiles_pastor').select('id').limit(1).timeout(const Duration(milliseconds: 1000));
         _estaOnline = true;
-      } catch (_) { _estaOnline = false; }
+      } catch (_) { 
+        _estaOnline = false; 
+      }
 
       final String usuarioUid = _supabase.auth.currentUser?.id ?? '';
 
-      // 2. Cargar Racha e Historial Devocional Remoto
-      final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', usuarioUid).maybeSingle();
-      _rachaDias = perfil != null ? (perfil['racha_actual'] ?? 0) : 0;
+      // 2. Cargar Racha e Historial Devocional Remoto (Solo si está Online)
+      if (_estaOnline && usuarioUid.isNotEmpty) {
+        final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', usuarioUid).maybeSingle();
+        _rachaDias = perfil != null ? (perfil['racha_actual'] ?? 0) : 0;
 
-      final List<dynamic> registrosLectura = await _supabase.
-      from('progreso_lectura')
-      .select('libro_id, capitulo, versiculos_leidos, fecha_lectura')
-      .eq('usuario_id', usuarioUid);
-      
-      int sumaVersos = 0;
-      int capsSemanales = 0;
-      int capsMensuales = 0;
-      final ahora = DateTime.now();
-      final hace7Dias = ahora.subtract(const Duration(days: 7));
-      final hace30Dias = ahora.subtract(const Duration(days: 30));
-      Map<int, List<int>> capitulosPorLibro = {};
+        final List<dynamic> registrosLectura = await _supabase
+            .from('progreso_lectura')
+            .select('libro_id, capitulo, versiculos_leidos, fecha_lectura')
+            .eq('usuario_id', usuarioUid);
+        
+        int sumaVersos = 0;
+        int capsSemanales = 0;
+        int capsMensuales = 0;
+        final ahora = DateTime.now();
+        final hace7Dias = ahora.subtract(const Duration(days: 7));
+        final hace30Dias = ahora.subtract(const Duration(days: 30));
+        Map<int, List<int>> capitulosPorLibro = {};
 
-      for (var reg in registrosLectura) {
-        int libId = reg['libro_id'];
-        int cap = reg['capitulo'];
-        sumaVersos += (reg['versiculos_leidos'] as num).toInt();
+        for (var reg in registrosLectura) {
+          int libId = reg['libro_id'];
+          int cap = reg['capitulo'];
+          sumaVersos += (reg['versiculos_leidos'] as num).toInt();
 
-        if (reg['fecha_lectura'] != null) {
-          final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
-          if (fechaReg.isAfter(hace7Dias)) capsSemanales++;
-          if (fechaReg.isAfter(hace30Dias)) capsMensuales++;
+          if (reg['fecha_lectura'] != null) {
+            final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
+            if (fechaReg.isAfter(hace7Dias)) capsSemanales++;
+            if (fechaReg.isAfter(hace30Dias)) capsMensuales++;
+          }
+
+          capitulosPorLibro.putIfAbsent(libId, () => []);
+          if (!capitulosPorLibro[libId]!.contains(cap)) capitulosPorLibro[libId]!.add(cap);
         }
 
-        capitulosPorLibro.putIfAbsent(libId, () => []);
-        if (!capitulosPorLibro[libId]!.contains(cap)) capitulosPorLibro[libId]!.add(cap);
-      }
-
-      int librosTerminados = 0;
-      List<String> pendientes = [];
-      for (int i = 1; i <= 66; i++) {
-        int req = _dbHelper.obtenerTotalCapitulos(i);
-        int hechos = capitulosPorLibro[i]?.length ?? 0;
-        if (hechos >= req) {
-          librosTerminados++;
-        } else {
-          pendientes.add(_dbHelper.obtenerNombreLibro(i));
+        int librosTerminados = 0;
+        List<String> pendientes = [];
+        for (int i = 1; i <= 66; i++) {
+          int req = _dbHelper.obtenerTotalCapitulos(i);
+          int hechos = capitulosPorLibro[i]?.length ?? 0;
+          if (hechos >= req) {
+            librosTerminados++;
+          } else {
+            pendientes.add(_dbHelper.obtenerNombreLibro(i));
+          }
         }
-      }
 
-      _totalCapitulosLeidos = registrosLectura.length;
-      _totalVersiculosLeidos = sumaVersos;
-      _minutosSemanales = capsSemanales * 4;
-      _minutosMensuales = capsMensuales * 4;
-      _totalLibrosCompletados = librosTerminados;
-      _librosFaltantes = pendientes;
+        _totalCapitulosLeidos = registrosLectura.length;
+        _totalVersiculosLeidos = sumaVersos;
+        _minutosSemanales = capsSemanales * 4;
+        _minutosMensuales = capsMensuales * 4;
+        _totalLibrosCompletados = librosTerminados;
+        _librosFaltantes = pendientes;
+      }
 
       // 3. Cargar Ecosistema de Bosquejos y Calcular Top 3 Libros
       final List<dynamic> bosquejos = await _dbHelper.obtenerHistorialBosquejos();
@@ -152,18 +156,30 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       if (bosquejos.isNotEmpty) {
         _ultimoSermonObjeto = bosquejos.first;
         _ultimoSermonTitulo = _ultimoSermonObjeto!['titulo'] ?? 'Sin título';
+      } else {
+        _ultimoSermonObjeto = null;
+        _ultimoSermonTitulo = "Ninguno reciente";
       }
 
       int atCount = 0;
       int ntCount = 0;
       Map<int, int> mapaFrecuenciaLibros = {};
-      final regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+):([0-9]+)\b');
+
+      // 🛡️ RECIPIENTE BLINDADO CONTRA RUIDOS JSON EN FLUTTER QUILL:
+      final RegExp regExp = RegExp(r'([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+)\s*:\s*([0-9]+)');
 
       for (var b in bosquejos) {
         String contenidoRaw = b['contenido_json'].toString();
-        final matches = regExp.allMatches(contenidoRaw);
+        String tituloRaw = b['titulo'].toString();
+        
+        // Removemos llaves, corchetes y caracteres JSON de la cadena antes de aplicar el RegExp
+        final String textoLimpio = '$tituloRaw $contenidoRaw'
+            .replaceAll(RegExp(r'[\{\}\[\]\(\)\"\,\\]'), ' ');
+
+        final matches = regExp.allMatches(textoLimpio);
         for (var m in matches) {
-          int libroId = _dbHelper.obtenerLibroId(m.group(1)!);
+          final String nombreLibroDetectado = m.group(1)!.trim();
+          int libroId = _dbHelper.obtenerLibroId(nombreLibroDetectado);
           if (libroId > 0) {
             if (libroId <= 39) {
               atCount++;
@@ -186,24 +202,42 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         'citas': e.value
       }).toList();
 
-      // 4. 🎨 MOTOR CORREGIDO DE CONTEO DE COLORES DE RESALTADO NATIVO:
-      final prefs = await SharedPreferences.getInstance();
-      final String? resaltadosRaw = prefs.getString('biblioteca_resaltados');
-      _conteoColoresResaltados = {0xFFFFF59D: 0, 0xFFA5D6A7: 0, 0xFF9FA8DA: 0, 0xFFF48FB1: 0};
-
-      if (resaltadosRaw != null) {
-        final Map<String, dynamic> decoded = jsonDecode(resaltadosRaw);
-        for (var valorColor in decoded.values) {
-          int colorInt = valorColor as int;
-          // Normalizamos el mapeo para corregir los canales alfa de opacidad opacos de SharedPreferences
-          if (colorInt == Colors.yellow.value || colorInt == 0xFFFFF59D) _conteoColoresResaltados[0xFFFFF59D] = _conteoColoresResaltados[0xFFFFF59D]! + 1;
-          if (colorInt == Colors.green.value || colorInt == 0xFFA5D6A7) _conteoColoresResaltados[0xFFA5D6A7] = _conteoColoresResaltados[0xFFA5D6A7]! + 1;
-          if (colorInt == Colors.blue.value || colorInt == 0xFF9FA8DA) _conteoColoresResaltados[0xFF9FA8DA] = _conteoColoresResaltados[0xFF9FA8DA]! + 1;
-          if (colorInt == Colors.pink.value || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
+      // 4. 🎨 MOTOR DE CONTEO DE COLORES DE RESALTADO NATIVO E HÍBRIDO (MÓVIL / WEB):
+      Map<String, dynamic> decodedResaltados = {};
+      
+      if (_estaOnline && usuarioUid.isNotEmpty) {
+        // En web o con red, intentamos traer los últimos resaltados directo de Supabase
+        decodedResaltados = await _dbHelper.descargarResaltadosDeNube();
+      } 
+      
+      // Si Supabase falló o vino vacío, recurrimos a SharedPreferences locales
+      if (decodedResaltados.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final String? resaltadosRaw = prefs.getString('biblioteca_resaltados');
+        if (resaltadosRaw != null) {
+          decodedResaltados = jsonDecode(resaltadosRaw);
         }
       }
 
-    } catch (e) { print("Error cargando dashboard: $e"); }
+      _conteoColoresResaltados = {0xFFFFF59D: 0, 0xFFA5D6A7: 0, 0xFF9FA8DA: 0, 0xFFF48FB1: 0};
+
+      for (var valorColor in decodedResaltados.values) {
+        int colorInt = valorColor as int;
+        if (colorInt == Colors.yellow.value || colorInt == 0xFFFFF59D) _conteoColoresResaltados[0xFFFFF59D] = _conteoColoresResaltados[0xFFFFF59D]! + 1;
+        if (colorInt == Colors.green.value || colorInt == 0xFFA5D6A7) _conteoColoresResaltados[0xFFA5D6A7] = _conteoColoresResaltados[0xFFA5D6A7]! + 1;
+        if (colorInt == Colors.blue.value || colorInt == 0xFF9FA8DA) _conteoColoresResaltados[0xFF9FA8DA] = _conteoColoresResaltados[0xFF9FA8DA]! + 1;
+        if (colorInt == Colors.pink.value || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
+      }
+
+      // Si bajamos datos frescos de la nube, actualizamos la caché local por seguridad
+      if (_estaOnline && decodedResaltados.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('biblioteca_resaltados', jsonEncode(decodedResaltados));
+      }
+
+    } catch (e) { 
+      print("Error cargando dashboard unificado: $e"); 
+    }
 
     if (mounted) setState(() => _cargandoDashboard = false);
   }
@@ -217,27 +251,14 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     final Color colorTextoS = esOscuro ? Colors.grey.shade400 : const Color(0xFF57606A);
 
     return Scaffold(
+      
       backgroundColor: colorFondo,
       appBar: AppBar(
         backgroundColor: colorCard,
         elevation: 0.5,
         title: Text('Escritorio de estudio', style: TextStyle(color: colorTextoP, fontWeight: FontWeight.bold, fontSize: 18)),
         actions: [
-          // 📡 PUNTO 4: LED Indicador de Red del Servidor
-          Row(
-            children: [
-              Container(
-                width: 10, height: 10,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _estaOnline ? Colors.green : Colors.orange,
-                  boxShadow: [BoxShadow(color: _estaOnline ? Colors.green.withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(_estaOnline ? 'Sincronizado' : 'Offline', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorTextoS)),
-            ],
-          ),
+          
           IconButton(
             icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent, size: 22),
             tooltip: 'Cerrar sesión',
@@ -251,12 +272,33 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           const SizedBox(width: 8),
         ],
       ),
-      body: _cargandoDashboard
+      body: RefreshIndicator(
+      color: const Color(0xFF1A73E8),       // Color azul para el círculo de carga
+      backgroundColor: colorCard,           // Color de fondo del círculo
+      onRefresh: _refrescarDatosDesdeNube,  // Ejecuta la función unificada que modificamos antes
+      
+      child: _cargandoDashboard
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(), // Obligatorio para Web
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
                 children: [
+                  // 📡 PUNTO 4: LED Indicador de Red del Servidor
+                  Row(
+                    children: [
+                      Container(
+                        width: 10, height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _estaOnline ? Colors.green : Colors.orange,
+                          boxShadow: [BoxShadow(color: _estaOnline ? Colors.green.withValues(alpha: 0.4) : Colors.orange.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(_estaOnline ? 'Sincronizado' : 'Offline', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorTextoS)),
+                    ],
+                  ),
                   // 🔥 PUNTO 1: Racha de Días Consecutivos y Banner de Bienvenida
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -604,8 +646,9 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                   ],
                 ),
               ),
-            );
-          }
+            )
+    );
+  }
   
   // 🚀 WIDGET AUXILIAR: Construye la celda analítica de tiempo con métrica de sufijo chico
   Widget _construirItemMinutos(String label, String valor, String sufijo, Color coloricon, Color colorTxP, Color colorTxS) {

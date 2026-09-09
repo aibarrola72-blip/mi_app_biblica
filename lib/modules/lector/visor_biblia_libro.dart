@@ -245,21 +245,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     } catch (_) {}
   }
 
-  void _alternarResaltadoVersiculo(int versiculo, int colorHex) async {
-    final llave = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$versiculo';
-    final prefs = await SharedPreferences.getInstance();
-
-    setState(() {
-      if (_resaltadosLocales.containsKey(llave) && _resaltadosLocales[llave] == colorHex) {
-        _resaltadosLocales.remove(llave); 
-      } else {
-        _resaltadosLocales[llave] = colorHex; 
-      }
-    });
-
-    await prefs.setString('biblioteca_resaltados', jsonEncode(_resaltadosLocales));
-  }
-
   @override
   Widget build(BuildContext context) {
     String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
@@ -1004,12 +989,20 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   }
 
   // Función auxiliar para limpiar la pantalla y persistir en base de datos
-  void _limpiarSeleccionYGuardar() {
+  void _limpiarSeleccionYGuardar() async {
     setState(() {
       _versiculoInicio = null;
       _versiculoFin = null;
     });
-    _guardarResaltadosEnDisco(); // Guarda la biblioteca de forma permanente
+    
+    // 1. Guarda en SharedPreferences al instante para que la UI reaccione rápido
+    await _guardarResaltadosEnDisco(); 
+
+    // 2. Dispara la sincronización en la nube para cada versículo modificado
+    final dbHelper = BibliaDatabaseHelper();
+    _resaltadosLocales.forEach((llave, color) {
+      dbHelper.sincronizarResaltadoAnube(llave, color);
+    });
   }
 
   // MÉTODO BASE: Eleva la paleta sobre los botones de Android de forma limpia
@@ -1179,20 +1172,29 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     );
   }
 
-  // Métodos de persistencia optimizados para lotes masivos
+  // 💾 MOTOR DE PERSISTENCIA: Guarda o elimina los resaltados directamente en SharedPreferences
   void _alternarResaltadoVersiculoEnLote(int versiculo, int colorHex) {
     final llave = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$versiculo';
-    if (colorHex == 0) {
-      _resaltadosLocales.remove(llave);
-    } else {
-      _resaltadosLocales[llave] = colorHex;
-    }
+
+    setState(() {
+      if (colorHex == 0) {
+        // Si el color es 0, el pastor seleccionó "Borrar sombreado" desde la paleta
+        _resaltadosLocales.remove(llave);
+      } else {
+        // De lo contrario, asigna o actualiza el color seleccionado al versículo
+        _resaltadosLocales[llave] = colorHex;
+      }
+    });
   }
 
-  void _guardarResaltadosEnDisco() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('biblioteca_resaltados', jsonEncode(_resaltadosLocales));
-    setState(() {}); // Fuerza el redibujo final
+  // 🚀 FUNCIÓN COMPLEMENTARIA: Guarda el mapa completo en el disco de forma asíncrona
+  Future<void> _guardarResaltadosEnDisco() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('biblioteca_resaltados', jsonEncode(_resaltadosLocales));
+    } catch (e) {
+      print('Aviso al persistir la paleta de sombreados en disco: $e');
+    }
   }
 
   Widget _construirBarraNavegacionRapida() {

@@ -701,5 +701,127 @@ class BibliaDatabaseHelper {
       return [];
     }
   }
+  // 🚀 EN TU BIBLIA DATABASE HELPER:
+  Future<void> sincronizarResaltadoAnube(String llave, int colorHex) async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return; // Si no está logueado, trabaja solo en local
 
+      if (colorHex == 0) {
+        // Si el color es cero, el pastor lo borró. Lo eliminamos de la nube.
+        await _client
+            .from('resaltados_biblia')
+            .delete()
+            .match({'user_id': user.id, 'llave_resaltado': llave});
+      } else {
+        // Si seleccionó color, lo guardamos o actualizamos (Upsert)
+        await _client.from('resaltados_biblia').upsert({
+          'user_id': user.id,
+          'llave_resaltado': llave,
+          'color_hex': colorHex,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      print('Aviso en sincronización de sombreado a Supabase: $e');
+    }
+  }
+
+  // 📥 Cargar los resaltados de la nube al iniciar la app
+  Future<Map<String, int>> descargarResaltadosDeNube() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return {};
+
+      final List<dynamic> respuesta = await _client
+          .from('resaltados_biblia')
+          .select('llave_resaltado, color_hex')
+          .eq('user_id', user.id);
+
+      final Map<String, int> mapaDescargado = {};
+      for (var item in respuesta) {
+        mapaDescargado[item['llave_resaltado']] = item['color_hex'];
+      }
+      return mapaDescargado;
+    } catch (e) {
+      print('Error al descargar sombreados de Supabase: $e');
+      return {};
+    }
+  }
+
+  /// 📋 CONSULTA DE RACHAS: Trae los días continuos de lectura del pastor
+  Future<int> obtenerRachaDevocional() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return 0; // Si está offline o sin loguear devuelve 0
+
+      // Consulta tu tabla de estadísticas o perfiles en Supabase
+      final datos = await _client
+          .from('usuario_progreso')
+          .select('racha_dias')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      return datos?['racha_dias'] ?? 0;
+    } catch (e) {
+      print('Aviso al obtener racha de Supabase: $e');
+      return 0; // En caso de error o modo local, mantiene el contador en 0
+    }
+  }
+
+  /// ⏳ CONSULTA DE TIEMPO: Trae los minutos invertidos en el editor/altar
+  Future<int> obtenerMinutosInvertidosAltar() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return 0;
+
+      final datos = await _client
+          .from('usuario_progreso')
+          .select('minutos_altar')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      return datos?['minutos_altar'] ?? 0;
+    } catch (e) {
+      print('Aviso al obtener tiempo de altar de Supabase: $e');
+      return 0;
+    }
+  }
+
+  // 🚀 EN TU BIBLIA_DB_HELPER (Al final del archivo)
+  Future<Map<String, dynamic>> obtenerDashboardMetricasCompletas() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) return {};
+
+      // 1. Descargamos el registro completo de la tabla de progreso del usuario
+      final datosProgreso = await _client
+          .from('usuario_progreso')
+          .select('racha_dias, total_capitulos_leidos, total_versiculos_leidos, minutos_semanales, minutos_mensuales, total_libros_completados')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      // 2. Descargamos el conteo de citas AT/NT si lo tienes en otra tabla o vista analítica
+      final datosCitas = await _client
+          .from('usuario_analitica_citas')
+          .select('at_citas_count, nt_citas_count')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      // Devolvemos un solo mapa consolidado
+      return {
+        'racha_dias': datosProgreso?['racha_dias'] ?? 0,
+        'total_capitulos_leidos': datosProgreso?['total_capitulos_leidos'] ?? 0,
+        'total_versiculos_leidos': datosProgreso?['total_versiculos_leidos'] ?? 0,
+        'minutos_semanales': datosProgreso?['minutos_semanales'] ?? 0,
+        'minutos_mensuales': datosProgreso?['minutos_mensuales'] ?? 0,
+        'total_libros_completados': datosProgreso?['total_libros_completados'] ?? 0,
+        'at_citas_count': datosCitas?['at_citas_count'] ?? 0,
+        'nt_citas_count': datosCitas?['nt_citas_count'] ?? 0,
+      };
+    } catch (e) {
+      print('Aviso al recuperar métricas combinadas de Supabase: $e');
+      return {};
+    }
+  }
 }
