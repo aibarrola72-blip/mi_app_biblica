@@ -622,31 +622,27 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       // 🚀 NUEVO: Evalúa si este versículo específico tiene enlaces mapeados
                       final bool tieneReferencia = _versiculosConReferenciasCargados.contains(numVerso);
 
-                      return GestureDetector(
+                      return InkWell(
                         onTap: () {
                           setState(() {
                             // 1. Si no hay nada seleccionado, marcamos el inicio
-                            if (_versiculoInicio == null) {
+                            if (_versiculoInicio == null || (_versiculoInicio != null && _versiculoFin != null)) {
                               _versiculoInicio = numVerso;
-                            } 
-                            // 2. Si toca el mismo versículo que ya era el inicio y no hay fin, se desmarca todo
-                            else if (_versiculoInicio == numVerso && _versiculoFin == null) {
+                              _versiculoFin = null;
+                            } else if (_versiculoInicio == numVerso) {
                               _versiculoInicio = null;
-                            } 
-                            // 3. Si ya hay un inicio, extendemos o creamos el rango
-                            else {
-                              // Si toca un número menor al inicio actual, ese número se convierte en el nuevo inicio
-                              if (numVerso < _versiculoInicio!) {
-                                _versiculoInicio = numVerso;
-                              } else {
-                                // De lo contrario, este número extiende o define el final del rango
-                                _versiculoFin = numVerso;
-                              }
-                            }
+                              _versiculoFin = null;                            
+                            }else {                              
+                              _versiculoFin = numVerso;
+                            }                            
                           });
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6.0),
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+
+                        child: Container(
+                          color: Colors.transparent, 
+                          padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
