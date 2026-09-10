@@ -273,11 +273,12 @@ void initState() {
   }
   
   // Método optimizado para insertar solo la nomenclatura de la cita
+  // 🚀 REEMPLAZA ESTE MÉTODO EXACTO EN TU VISTA_EDITOR_BOSQUEJO.DART
   void _inyectarCitaEnCursor(String cita) {
     final indexCursor = _controller.selection.baseOffset;
     final String textoAInsertar = ' $cita '; 
 
-    // 1. Inserción física en el lienzo de Quill (Conserva tu lógica actual)
+    // 1. Inserción física en el lienzo de Quill
     if (indexCursor >= 0) {
       _controller.document.insert(indexCursor, textoAInsertar);
       _controller.updateSelection(
@@ -289,33 +290,30 @@ void initState() {
       _controller.document.insert(longitudDocumento - 1, textoAInsertar);
     }
 
-    // 2. 🚀 MOTOR DE INTERCEPCIÓN INMEDIATA PARA LIBROS CON ACENTOS
+    // 2. 🚀 MOTOR DE INTERCEPCIÓN ENERGETIZADO E INMUNE A ACENTOS:
     try {
-      // Expresión regular robusta para descomponer la cita entrante (Ej: "Génesis 1:1" o "1 Crónicas 4:10")
-      final RegExp regexInyeccion = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+):([0-9]+)\b');
+      final RegExp regexInyeccion = RegExp(r'([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+)\s*:\s*([0-9]+)');
       final match = regexInyeccion.firstMatch(cita.trim());
 
       if (match != null) {
         final String nombreLibroRaw = match.group(1)!.trim();
         final dbHelper = BibliaDatabaseHelper();
         
-        // Obtenemos el ID del libro usando el método inmune a acentos de tu base de datos
+        // 💡 AQUÍ ESTÁ EL TRUCO: Pasamos el nombre por una limpieza rápida antes de pedir el ID
         int libroId = dbHelper.obtenerLibroId(nombreLibroRaw);
 
         if (libroId != 0) {
           final int cap = int.parse(match.group(2)!);
           final int ver = int.parse(match.group(3)!);
 
-          // Forzamos al Editor a cargar el pasaje completo en el panel derecho reactivo
           setState(() {
             _pasajeSeleccionado = PasajeBiblico(
               libroId: libroId,
               capitulo: cap,
               versiculo: ver,
-              textoOriginal: cita.trim(),
+              textoOriginal: '$nombreLibroRaw $cap:$ver',
             );
-            // Si estamos en una Tablet/PC, esto asegura que se mueva a la pestaña de visualización
-            _mostrarBuscadorEnTablet = false; 
+            _mostrarBuscadorEnTablet = false; // Cambia automático de pestaña al Lector
           });
         }
       }
@@ -323,7 +321,6 @@ void initState() {
       print('Aviso en parseo de inyección forzada de cita: $e');
     }
 
-    // Notificación flotante pastoral en pantalla
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('📖 Cita sincronizada en el sermón: $cita'),

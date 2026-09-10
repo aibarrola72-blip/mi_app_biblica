@@ -118,28 +118,33 @@ class BibliaDatabaseHelper {
     for (int i = 0; i < conAcento.length; i++) {
       resultado = resultado.replaceAll(conAcento[i], sinAcento[i]);
     }
-    return resultado.toLowerCase().trim();
+    return resultado.toLowerCase().trim().replaceAll('.', ''); // Limpia puntos de abreviaturas
   }
   int obtenerLibroId(String nombreLibro) {
     final String nombreSanitizado = _removerAcentostildes(nombreLibro);
     
     // Diccionario extendido con variaciones sanitizadas sin acentos
     final Map<String, int> diccionarioTildesSeguro = {
-      'genesis': 1, 'exodo': 2, 'levitico': 3, 'numeros': 4, 'deuteronomio': 5, 'josue': 6, 'jueces': 7,
-      'rut': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
-      '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
-      'nehemias': 16, 'ester': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
-      'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
-      'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
-      'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
-      'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
-      'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
-      'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
-      '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
-      'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
-      '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
-      'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
-      '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
+      'genesis': 1, 'gn': 1, 'exodo': 2, 'ex': 2, 'levitico': 3, 'lv': 3, 'numeros': 4, 'nm': 4,
+    'deuteronomio': 5, 'dt': 5, 'josue': 6, 'jos': 6, 'jueces': 7, 'jue': 7, 'rut': 8, 'rt': 8,
+    '1 samuel': 9, '1sm': 9, '1 sm': 9, '2 samuel': 10, '2sm': 10, '2 sm': 10, '1 reyes': 11, '1r': 11, '1 r': 11,
+    '2 reyes': 12, '2r': 12, '2 r': 12, '1 cronicas': 13, '1cr': 13, '1 cr': 13, '2 cronicas': 14, '2cr': 14, '2 cr': 14,
+    'esdras': 15, 'esd': 15, 'nehemias': 16, 'neh': 16, 'ester': 17, 'est': 17, 'job': 18,
+    'salmos': 19, 'sal': 19, 'proverbios': 20, 'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22,
+    'isaias': 23, 'is': 23, 'jeremias': 24, 'jr': 24, 'lamentaciones': 25, 'lam': 25, 'ezequiel': 26, 'ez': 26,
+    'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28, 'joel': 29, 'jl': 29, 'amos': 30, 'am': 30,
+    'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33, 'nahum': 34, 'nah': 34,
+    'habacuc': 35, 'hab': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'hag': 37, 'zacarias': 38, 'zac': 38,
+    'malaquias': 39, 'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42,
+    'juan': 43, 'jn': 43, 'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, 
+    '1 corintios': 46, '1co': 46, '1 co': 46, '1 cor': 46, '2 corintios': 47, '2co': 47, '2 co': 47,
+    'galatas': 48, 'ga': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50, 'colosenses': 51, 'col': 51,
+    '1 tesalonicenses': 52, '1ts': 52, '1 ts': 52, '2 tesalonicenses': 53, '2ts': 53, '2 ts': 53,
+    '1 timoteo': 54, '1ti': 54, '1 ti': 54, '2 timoteo': 55, '2ti': 55, '2 ti': 55, 'tito': 56, 'ti': 56,
+    'filemon': 57, 'flm': 57, 'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59,
+    '1 pedro': 60, '1p': 60, '1 p': 60, '2 pedro': 61, '2p': 61, '2 p': 61,
+    '1 juan': 62, '1jn': 62, '1 jn': 62, '2 juan': 63, '2jn': 63, '2 jn': 63, '3 juan': 64, '3jn': 64, '3 jn': 64,
+    'judas': 65, 'jud': 65, 'apocalipsis': 66, 'ap': 66
     };
 
     return diccionarioTildesSeguro[nombreSanitizado] ?? 0;
@@ -360,6 +365,7 @@ class BibliaDatabaseHelper {
     final List<String> palabrasClave = terminoSanitizado.split(' ').where((w) => w.length > 2).toList();
     if (palabrasClave.isEmpty) return [];
 
+    // 1. INTENTO EN LA NUBE (Supabase)
     try {
       final terminosFts = consulta.trim().split(' ').join(' & ');
       final response = await _client
@@ -375,20 +381,23 @@ class BibliaDatabaseHelper {
 
     // 2. INTENTO EN CACHÉ SQLITE: Si ya existía una búsqueda idéntica previa (Solo Móvil)
     if (!kIsWeb) {
-      final db = await databaseLocal;
-      if (db != null) {
-        final resultadoLocal = await db.query(
-          'cache_busquedas',
-          where: 'termino_busqueda = ?',
-          whereArgs: [terminoSanitizado],
-          limit: 50,
-        );
-        if (resultadoLocal.isNotEmpty) {
-          return resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
+      try {
+        final db = await databaseLocal;
+        if (db != null) {
+          final resultadoLocal = await db.query(
+            'cache_busquedas',
+            where: 'termino_busqueda = ?',
+            whereArgs: [terminoSanitizado],
+            limit: 50,
+          );
+          if (resultadoLocal.isNotEmpty) {
+            return resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
+          }
         }
-      }
+      } catch (_) {}
     }
 
+    // 3. SQUELCH DE CONTINGENCIA ABSOLUTO (Lectura de JSON Local)
     try {
       final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/rv1960.json');
       final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
@@ -400,19 +409,33 @@ class BibliaDatabaseHelper {
         final int libroId = i + 1;
         final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
 
-        for (var capituloData in capitulosJson) {
-          final int numCapitulo = capituloData['chapter_number'] ?? 1;
+        for (int c = 0; c < capitulosJson.length; c++) {
+          final Map<String, dynamic> capituloData = capitulosJson[c];
+          
+          // 🚀 CORRECCIÓN CLAVE: Verificamos todas las llaves posibles de capítulos en JSON bíblicos
+          // Si no encuentra 'chapter_number', intenta con 'chapter' o 'number'. Si todo falla, usa el índice del bucle + 1.
+          final int numCapitulo = capituloData['chapter_number'] ?? 
+                                  capituloData['chapter'] ?? 
+                                  capituloData['number'] ?? 
+                                  (c + 1);
+
           final List<dynamic> itemsVersiculos = capituloData['items'] ?? [];
 
           for (var item in itemsVersiculos) {
             if (item['type'] == 'verse') {
-              final int numVerso = (item['verse_numbers'] as List).first;
+              final List<dynamic> numbersList = item['verse_numbers'] ?? [];
+              if (numbersList.isEmpty) continue;
+              
+              final int numVerso = (numbersList.first as num).toInt();
               String textoLimpio = (item['lines'] as List).join(' ').trim();
               
               // Descodificador de acentos HTML decimales
-              textoLimpio = textoLimpio.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) => String.fromCharCode(int.parse(m.group(1)!)));
+              textoLimpio = textoLimpio.replaceAllMapped(
+                RegExp(r'&#([0-9]+);'), 
+                (Match m) => String.fromCharCode(int.parse(m.group(1)!))
+              );
               
-              // 🚀 CLAVE DE LA BÚSQUEDA INSENSIBLE: Comparamos quitando acentos a ambos lados
+              // Comparamos quitando acentos a ambos lados
               final String textoEvaluar = _removerAcentostildes(textoLimpio);
               
               bool cumpleFiltros = true;
@@ -423,7 +446,7 @@ class BibliaDatabaseHelper {
               if (cumpleFiltros) {
                 resultadosFiltradosJson.add({
                   'libro_id': libroId,
-                  'capitulo': numCapitulo,
+                  'capitulo': numCapitulo, // 🟢 Ahora inyectará el número de capítulo real escaneado
                   'versiculo': numVerso,
                   'texto': textoLimpio,
                 });
