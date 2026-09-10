@@ -209,7 +209,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
                 if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
                   textosOfflineJson.add({
-                    'versiculo': numerosVerso.first as int,
+                    'versiculo': (numerosVerso.first as num).toInt(),
                     'texto': lineasTexto.first.toString().trim(),
                   });
                 }
@@ -616,7 +616,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
                   // CASO 3: RENDERIZADO NORMAL DE VERSÍCULOS (Ajustamos el índice restando el desfase del título)
                       final v = _versiculos[index -1];
-                      final numVerso = v['versiculo'] ?? 1;
+                      final numVerso = v['versiculo'] ?? v['num_versiculo'] ?? v['verse'] ?? index; // 👈 Blindaje definitivo
                       final llaveResaltado = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numVerso';
                       final int? colorHex = _resaltadosLocales[llaveResaltado];                                            
                       // 🚀 NUEVO: Evalúa si este versículo específico tiene enlaces mapeados

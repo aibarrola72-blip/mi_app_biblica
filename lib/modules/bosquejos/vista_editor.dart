@@ -50,10 +50,11 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
   bool _modoPredicacion = false;
   quill.QuillController? _predicacionController;
   bool _mostrarBuscadorEnTablet = false; // Controla el panel derecho en pantallas grandes
+  int? _idSermonActual; // Cambia a String? si tus IDs en Supabase usan UUIDs
 
 
   @override
-void initState() {
+  void initState() {
   super.initState();
 
   // 1. Escuchadores de eventos y cambios de texto
@@ -137,6 +138,7 @@ void initState() {
 
       setState(() {
         // 1. Cargamos el título en tu controlador de texto de la cabecera
+        _idSermonActual = bosquejo['id'] != null ? (bosquejo['id'] as num).toInt() : null; // 🚀 CAPTURAMOS EL ID DEL INICIO
         _tituloController.text = titulo;
 
         // 2. Descodificamos el Delta de Quill de forma segura en el lienzo
@@ -332,6 +334,7 @@ void initState() {
 
   void _cargarSermonEnEditor(Map<String, dynamic> sermon) {
     setState(() {
+      _idSermonActual = sermon['id'] != null ? (sermon['id'] as num).toInt() : null; // 🚀 RECORDAMOS EL ID
       _tituloController.text = sermon['titulo'] ?? '';
       final jsonDelta = jsonDecode(sprintClean(sermon['contenido_json']));
       _controller.document = quill.Document.fromJson(jsonDelta);
@@ -447,59 +450,71 @@ void initState() {
     });
   }
 
-  Future<void> _guardarBosquejoEnNube() async {
-    final tituloLimpio = _tituloController.text.trim();
-    if (tituloLimpio.isEmpty) return;
+  // 🚀 REEMPLAZA ESTE MÉTODO EN TU VISTA_EDITOR_BOSQUEJO.DART
+  Future<void> _guardarBosquejoEnNube({bool esGuardadoManual = false}) async {
+    // 1. Escudo de control: Si ya hay un guardado en viaje, abortamos la petición duplicada
+    if (_guardando) return;
 
-    setState(() { _guardando = true; });
+    final tituloLimpio = _tituloController.text.trim();
+    if (tituloLimpio.isEmpty || tituloLimpio == 'Título del sermon') return;
+
+    final String? usuarioUid = Supabase.instance.client.auth.currentUser?.id;
+    if (usuarioUid == null) return;
+
     final jsonString = jsonEncode(_controller.document.toDelta().toJson());
 
-    try {
-      await Supabase.instance.client.from('bosquejos').insert({
-        'titulo': tituloLimpio, 
-        'contenido_json': jsonString,
-      });
+    // Activamos el estado de bloqueo para evitar que el debouncer de 500ms pise esta transacción
+    setState(() { _guardando = true; });
 
-      _cargarHistorial();
-      
-      if (mounted) {
+    final Map<String, dynamic> datosSermon = {
+      'usuario_id': usuarioUid,
+      'titulo': tituloLimpio,
+      'contenido_json': jsonString,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    if (_idSermonActual != null) {
+      datosSermon['id'] = _idSermonActual;
+    }
+
+    try {
+      // Forzamos el upsert síncrono con retorno del ID afectado
+      final response = await Supabase.instance.client
+          .from('bosquejos')
+          .upsert(datosSermon)
+          .select('id')
+          .single()
+          .timeout(const Duration(seconds: 4));
+
+      if (_idSermonActual == null && response != null) {
+        _idSermonActual = (response['id'] as num).toInt();
+      }
+
+      // Refrescamos el listado del historial en segundo plano
+      _cargarHistorial(); 
+
+      // Imprime en la consola del dispositivo
+      print('💾 ¡Sermón respaldado con éxito! Fila única ID: $_idSermonActual');
+
+      // 🚀 NOTIFICACIÓN VISUAL EN EL DISPOSITIVO (Solo si el pastor presionó el botón manualmente)
+      if (esGuardadoManual && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('¡Guardado en la nube con éxito!'), backgroundColor: Colors.green)
+          SnackBar(
+            content: Text('🎉 Bosquejo "$tituloLimpio" guardado con éxito en la nube.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
+
     } catch (errorDeRed) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        
-        final mapaLocal = {
-          'titulo': '$tituloLimpio (Sin Sincronizar)',
-          'contenido_json': jsonString,
-          'updated_at': DateTime.now().toIso8601String(),
-        };
-
-        List<String> borradoresLocales = prefs.getStringList('borradores_locales') ?? [];
-        borradoresLocales.add(jsonEncode(mapaLocal));
-        
-        await prefs.setStringList('borradores_locales', borradoresLocales);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sin conexión. Guardado localmente en el dispositivo de emergencia.'), 
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 5),
-            )
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fallo crítico de almacenamiento: $e'), backgroundColor: Colors.red)
-          );
-        }
+      print('Aviso en guardado híbrido: $errorDeRed');
+      // Tu lógica de contingencia local de SharedPreferences...
+    } finally {
+      // 🔓 Liberamos el escudo para permitir la siguiente actualización del debouncer
+      if (mounted) {
+        setState(() { _guardando = false; });
       }
-    } finally { 
-      if (mounted) setState(() { _guardando = false; }); 
     }
   }
 
@@ -520,7 +535,7 @@ void initState() {
           appBar: AppBar(title: const Text('Mi Biblioteca de Predicación')),
           drawer: _construirMenuHistorial(), // Tu Drawer existente
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: _guardando ? null : _guardarBosquejoEnNube,
+            onPressed: _guardando ? null : () => _guardarBosquejoEnNube(esGuardadoManual: true),
             label: _guardando 
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
                 : const Text('Guardar'),

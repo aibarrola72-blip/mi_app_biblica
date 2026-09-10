@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../database/ajustes_config.dart';
 import '../../database/biblia_db_helper.dart';
 import '../../database/auth_service.dart';
-import '../../database/canal_eventos.dart';
 import 'splash_screen_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
@@ -202,17 +201,19 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           }
         }
       }
-      _atCitasCount = atCount;
-      _ntCitasCount = ntCount;
+      // Guardamos de golpe en tus variables de control global
+      setState(() {
+        _atCitasCount = atCount;
+        _ntCitasCount = ntCount;
 
-      // Ordenar y estructurar el Top 3 de libros base
-      var listaOrdenadaLibros = mapaFrecuenciaLibros.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-      
-      _topLibrosMasPredicados = listaOrdenadaLibros.take(3).map((e) => {
-        'nombre': _dbHelper.obtenerNombreLibro(e.key),
-        'citas': e.value
-      }).toList();
+        var listaOrdenadaLibros = mapaFrecuenciaLibros.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        _topLibrosMasPredicados = listaOrdenadaLibros.take(3).map((e) => {
+          'nombre': _dbHelper.obtenerNombreLibro(e.key),
+          'citas': e.value
+        }).toList();
+      });
 
       // 4. 🎨 MOTOR DE CONTEO DE COLORES DE RESALTADO NATIVO E HÍBRIDO (MÓVIL / WEB):
       Map<String, dynamic> decodedResaltados = {};

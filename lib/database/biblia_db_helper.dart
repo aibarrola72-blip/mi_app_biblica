@@ -120,12 +120,24 @@ class BibliaDatabaseHelper {
     }
     return resultado.toLowerCase().trim().replaceAll('.', ''); // Limpia puntos de abreviaturas
   }
+  // 🚀 REEMPLAZA EL MÉTODO EXACTO EN TU BIBLIA_DB_HELPER.DART
   int obtenerLibroId(String nombreLibro) {
-    final String nombreSanitizado = _removerAcentostildes(nombreLibro);
-    
-    // Diccionario extendido con variaciones sanitizadas sin acentos
-    final Map<String, int> diccionarioTildesSeguro = {
-      'genesis': 1, 'gn': 1, 'exodo': 2, 'ex': 2, 'levitico': 3, 'lv': 3, 'numeros': 4, 'nm': 4,
+    // 1. Convertimos a minúsculas y removemos espacios en los extremos
+    String textoEvaluar = nombreLibro.toLowerCase().trim().replaceAll('.', '');
+
+    // 2. 🪓 ELIMINACIÓN QUIRÚRGICA DE TILDES:
+    // Forzamos el reemplazo de cualquier vocal con acento por su variante limpia
+    textoEvaluar = textoEvaluar
+      .replaceAll(RegExp(r'[áäàâÁÀÂÄ]'), 'a')
+      .replaceAll(RegExp(r'[éëèêÉÈÊË]'), 'e')
+      .replaceAll(RegExp(r'[íïìîÍÌÎÏ]'), 'i')
+      .replaceAll(RegExp(r'[óöòôÓÒÔÖ]'), 'o')
+      .replaceAll(RegExp(r'[úüùûÚÙÛÜ]'), 'u')
+      .replaceAll(RegExp(r'[ñÑ]'), 'n');
+
+    // Tu mapa canónico completo que escribimos en el paso anterior (ej: 'exodo': 2, 'genesis': 1)
+    final Map<String, int> mapaLibrosSanitizados = {
+    'genesis': 1, 'gn': 1, 'exodo': 2, 'ex': 2, 'exo': 2, 'exod': 2, 'levitico': 3, 'lv': 3, 'numeros': 4, 'nm': 4,
     'deuteronomio': 5, 'dt': 5, 'josue': 6, 'jos': 6, 'jueces': 7, 'jue': 7, 'rut': 8, 'rt': 8,
     '1 samuel': 9, '1sm': 9, '1 sm': 9, '2 samuel': 10, '2sm': 10, '2 sm': 10, '1 reyes': 11, '1r': 11, '1 r': 11,
     '2 reyes': 12, '2r': 12, '2 r': 12, '1 cronicas': 13, '1cr': 13, '1 cr': 13, '2 cronicas': 14, '2cr': 14, '2 cr': 14,
@@ -147,7 +159,8 @@ class BibliaDatabaseHelper {
     'judas': 65, 'jud': 65, 'apocalipsis': 66, 'ap': 66
     };
 
-    return diccionarioTildesSeguro[nombreSanitizado] ?? 0;
+    // Buscamos la llave completamente limpia de cualquier acento ortográfico
+    return mapaLibrosSanitizados[textoEvaluar] ?? 0;
   }
 
   // 🚀 LECTURA DE CAPÍTULO HÍBRIDO (Inmune a caídas Web y Móvil)
@@ -554,33 +567,53 @@ class BibliaDatabaseHelper {
   }
 
   // Trae los bosquejos guardados desde Supabase
+  // 🚀 REEMPLAZA ESTE MÉTODO EN TU BIBLIA_DB_HELPER.DART
   Future<List<Map<String, dynamic>>> obtenerHistorialBosquejos() async {
     try {
       final String? usuarioUid = _client.auth.currentUser?.id;
       if (usuarioUid == null) return [];
 
-      // 🌐 CASO 1: SI LA APP CORRE EN UN NAVEGADOR WEB
+      // 🌐 CASO A: SI CORRE EN LA WEB (Depende 100% de la nube)
       if (kIsWeb) {
         final response = await _client
-          .from('bosquejos')
-          .select('*')
-          .eq('usuario_id', usuarioUid)
-          .order('updated_at', ascending: false);
-            
+            .from('bosquejos')
+            .select('*')
+            .eq('usuario_id', usuarioUid)
+            .order('updated_at', ascending: false);
         return List<Map<String, dynamic>>.from(response);
       } 
-      // 📱 CASO 2: SI LA APP CORRE EN EL CELULAR (Android/iOS)
-        else {
-        // 💾 Leemos de tu base de datos local blindada (SQLite móvil)
-        // Ajusta '_dbMobi' y el orden según los nombres exactos de tus columnas locales
+      
+      // 📱 CASO B: SI CORRE EN EL DISPOSITIVO MÓVIL (Híbrido / Offline-First)
+      else {
+        try {
+          // Intentamos descargar los últimos sermones actualizados desde Supabase
+          final response = await _client
+              .from('bosquejos')
+              .select('*')
+              .eq('usuario_id', usuarioUid)
+              .order('updated_at', ascending: false)
+              .timeout(const Duration(milliseconds: 1500)); // Timeout corto si la señal es mala
+          
+          final listNube = List<Map<String, dynamic>>.from(response);
+
+          if (listNube.isNotEmpty) {
+            // OPTATIVO: Aquí podrías guardar 'listNube' en tu _dbMobi local para actualizar la caché offline
+            return listNube;
+          }
+        } catch (_) {
+          // Si falló el internet en el celular, no pasa nada; salta al catch e intenta leer el disco local
+        }
+
+        // 💾 RESPALDO OFFLINE: Si no hay señal en el celular, lee la base de datos local SQLite
         final List<Map<String, dynamic>> locales = await _dbMobi.query(
           'bosquejos',
-          orderBy: 'updated_at DESC', // O la columna de fecha que uses localmente
+          orderBy: 'updated_at DESC',
         );
         return locales;
       }
-    } catch (e) { print('Error al obtener historial multiusuario: $e');
-        return []; 
+    } catch (e) { 
+      print('Error al obtener historial unificado: $e');
+      return []; 
     }
   }
 
