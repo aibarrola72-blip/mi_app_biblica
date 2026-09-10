@@ -536,15 +536,28 @@ class BibliaDatabaseHelper {
       final String? usuarioUid = _client.auth.currentUser?.id;
       if (usuarioUid == null) return [];
 
-      final response = await _client
-      .from('bosquejos')
-      .select('*')
-      .eq('usuario_id', usuarioUid)
-      .order('updated_at', ascending: false);
+      // 🌐 CASO 1: SI LA APP CORRE EN UN NAVEGADOR WEB
+      if (kIsWeb) {
+        final response = await _client
+          .from('bosquejos')
+          .select('*')
+          .eq('usuario_id', usuarioUid)
+          .order('updated_at', ascending: false);
             
-      return List<Map<String, dynamic>>.from(response);
+        return List<Map<String, dynamic>>.from(response);
+      } 
+      // 📱 CASO 2: SI LA APP CORRE EN EL CELULAR (Android/iOS)
+        else {
+        // 💾 Leemos de tu base de datos local blindada (SQLite móvil)
+        // Ajusta '_dbMobi' y el orden según los nombres exactos de tus columnas locales
+        final List<Map<String, dynamic>> locales = await _dbMobi.query(
+          'bosquejos',
+          orderBy: 'updated_at DESC', // O la columna de fecha que uses localmente
+        );
+        return locales;
+      }
     } catch (e) { print('Error al obtener historial multiusuario: $e');
-      return []; 
+        return []; 
     }
   }
 

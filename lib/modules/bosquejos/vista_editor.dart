@@ -348,6 +348,7 @@ void initState() {
     if (_debouncer?.isActive ?? false) _debouncer!.cancel();
     _debouncer = Timer(const Duration(milliseconds: 500), () {
       _analizarTextoConRegEx();
+      _guardarBosquejoEnNube();
     });
   }
 
