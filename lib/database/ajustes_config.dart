@@ -18,6 +18,12 @@ class AjustesConfig extends ChangeNotifier {
   bool _modoPulpitoActivo = false;
   bool get modoPulpitoActivo => _modoPulpitoActivo;
 
+  String _ipProyeccion = "192.168.1.50";
+  String _softwareProyeccion = "OpenLP";
+
+  String get ipProyeccion => _ipProyeccion;
+  String get softwareProyeccion => _softwareProyeccion;
+
   void cambiarModoPulpito(bool activado) {
     _modoPulpitoActivo = activado;
     notifyListeners();
@@ -39,6 +45,10 @@ class AjustesConfig extends ChangeNotifier {
 
     // Descarga de respaldo asíncrona de Supabase
     _descargarAjustesDeNube();
+
+    _ipProyeccion = prefs.getString('ip_proyeccion') ?? "192.168.1.50";
+    _softwareProyeccion = prefs.getString('software_proyeccion') ?? "OpenLP";
+    notifyListeners();
   }
 
   Future<void> _descargarAjustesDeNube() async {
@@ -104,5 +114,15 @@ class AjustesConfig extends ChangeNotifier {
     
     // Sincroniza el cambio con tu servidor de Google Cloud de forma transparente
     _subirAjustesANube(); 
+  }
+
+  // Métodos públicos para guardar los nuevos valores en la memoria flash
+  Future<void> guardarConfiguracionProyector(String nuevaIp, String nuevoSoftware) async {
+    final prefs = await SharedPreferences.getInstance();
+    _ipProyeccion = nuevaIp;
+    _softwareProyeccion = nuevoSoftware;
+    await prefs.setString('ip_proyeccion', nuevaIp);
+    await prefs.setString('software_proyeccion', nuevoSoftware);
+    notifyListeners();
   }
 }

@@ -939,18 +939,80 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
   }
 
 
-  // 3. CONTROL DEL PANEL LECTOR (Se mantiene optimizado como antes)
+  // 🚀 REEMPLAZA ESTE MÉTODO EN TU VISTA_EDITOR_BOSQUEJO.DART
   Widget _construirPanelLectorBiblico() {
+    final dbHelper = BibliaDatabaseHelper();
+
     return _pasajeSeleccionado != null
         ? Stack(
             children: [
+              // Vista del pasaje bíblico contextual completo
               VistaLectorBiblia(
                 pasaje: _pasajeSeleccionado!,
                 onPasajeCambiado: (nuevoPasaje) {
                   setState(() { _pasajeSeleccionado = nuevoPasaje; });
                 },
               ),
-              Positioned(top: 10, right: 10, child: IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => setState(() => _pasajeSeleccionado = null))),
+              
+              // 📡 PANEL DE CONTROL DE PÚLPITO EN LA ESQUINA SUPERIOR DERECHA
+              Positioned(
+                top: 10, 
+                right: 10, 
+                child: Row(
+                  children: [
+                    // 📺 NUEVO BOTÓN: Proyectar el pasaje actual completo en las pantallas del templo
+                    CircleAvatar(
+                      backgroundColor: Colors.deepPurple.shade600,
+                      radius: 18,
+                      child: IconButton(
+                        icon: const Icon(Icons.connected_tv_rounded, color: Colors.white, size: 18),
+                        tooltip: 'Proyectar este pasaje en vivo',
+                        onPressed: () async {
+                          // Extraemos los datos del pasaje que está visualizando el pastor en el panel
+                          final String cita = _pasajeSeleccionado!.textoOriginal;
+                          
+                          // Si tu modelo 'PasajeBiblico' no tiene el cuerpo del texto cargado directamente,
+                          // podemos pedirle al helper que traiga el texto rápido para enviarlo limpio a la red
+                          final String textoCompleto = _pasajeSeleccionado!.textoOriginal; 
+
+                          // Disparamos la señal HTTP hacia el proyector de la iglesia (OpenLP/Quelea)
+                          // (Recuerda definir '_ipComputadoraProyeccion' y '_plataformaProyeccion' arriba en tu clase)
+                          bool enviado = await dbHelper.proyectarPasajeEnVivo(
+                            ipComputadora: _ajustesGlobales.ipProyeccion,       // 🟢 Dinámico desde SharedPreferences
+                            plataforma: _ajustesGlobales.softwareProyeccion,   // 🟢 Cambia automáticamente a OpenLP o Quelea
+                            cita: cita,
+                            textoVersiculo: textoCompleto, 
+                          );
+
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(enviado 
+                                    ? '📺 Proyectando en vivo vía ${_ajustesGlobales.softwareProyeccion}: $cita' 
+                                    : '⚠️ Conexión fallida. Verifique la IP en Ajustes Visuales o que ${_ajustesGlobales.softwareProyeccion} esté abierto en la PC.'),
+                                backgroundColor: enviado ? Colors.deepPurple : Colors.orange,
+                                duration: const Duration(seconds: 3),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 8),
+                    
+                    // Botón existente de cerrar el panel
+                    CircleAvatar(
+                      backgroundColor: Colors.red.withOpacity(0.12),
+                      radius: 18,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.red, size: 18), 
+                        onPressed: () => setState(() => _pasajeSeleccionado = null)
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           )
         : ListView.builder(
@@ -962,7 +1024,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
             ),
           );
   }
-  
+ 
   // MÉTODO DE OPTIMIZACIÓN: Sube los sermones pendientes de forma automática y limpia la caché local
   Future<void> _sincronizarBorradoresLocalesAnube() async {
     try {

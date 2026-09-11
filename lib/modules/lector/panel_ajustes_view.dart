@@ -90,6 +90,67 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                     ),
                     const SizedBox(height: 10),
 
+                    // 🚀 AGREGA ESTE BLOQUE DENTRO DEL LIGAR DE WIDGETS DE TU PANELAJUSTESVIEW
+                    const Divider(height: 30),
+                    const Text(
+                      'Conexión Multimedia del Templo', 
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey)
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        // 1. Selector de Plataforma (Dropdown)
+                        Expanded(
+                          flex: 4,
+                          child: DropdownButtonFormField<String>(
+                            value: widget.ajustes.softwareProyeccion,
+                            decoration: InputDecoration(
+                              labelText: 'Software',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'OpenLP', child: Text('OpenLP')),
+                              DropdownMenuItem(value: 'Quelea', child: Text('Quelea')),
+                            ],
+                            onChanged: (nuevoSoftware) {
+                              if (nuevoSoftware != null) {
+                                widget.ajustes.guardarConfiguracionProyector(
+                                  widget.ajustes.ipProyeccion, 
+                                  nuevoSoftware
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        
+                        // 2. Caja de texto para ingresar la IP de la Iglesia
+                        Expanded(
+                          flex: 6,
+                          child: TextFormField(
+                            initialValue: widget.ajustes.ipProyeccion,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'Dirección IP de la PC',
+                              hintText: 'Ej: 192.168.1.50',
+                              prefixIcon: const Icon(Icons.lan_rounded, size: 18),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onChanged: (nuevaIp) {
+                              // Guardamos el cambio de IP en SharedPreferences en tiempo real
+                              widget.ajustes.guardarConfiguracionProyector(
+                                nuevaIp.trim(), 
+                                widget.ajustes.softwareProyeccion
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
                     // 3. Selector de Color de Fondo
                     const Text('Color de Fondo de Lectura:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 12),

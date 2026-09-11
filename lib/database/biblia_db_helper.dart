@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb; // Detecta si es Web nativ
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sqflite/sqflite.dart' as sql; // Importación limpia multiplataforma
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 
 class BibliaDatabaseHelper {
   static final BibliaDatabaseHelper _instance = BibliaDatabaseHelper._internal();
@@ -891,6 +892,43 @@ class BibliaDatabaseHelper {
     } catch (e) {
       print('Aviso al recuperar métricas combinadas de Supabase: $e');
       return {};
+    }
+  }
+
+  /// 📡 MOTOR DE TRANSMISIÓN MULTIMEDIA: Envía el versículo directo al proyector del templo
+  Future<bool> proyectarPasajeEnVivo({
+    required String ipComputadora, 
+    required String plataforma, 
+    required String cita, 
+    required String textoVersiculo
+  }) async {
+    try {
+      final String mensajeCompleto = '"$textoVersiculo" — $cita';
+
+      // 🎬 CONFIGURACIÓN A: SI LA IGLESIA UTILIZA OPENLP
+      if (plataforma == "OpenLP") {
+        final url = Uri.parse('http://$ipComputadora:1920/api/v1/alerts/text');
+        // Enviamos el versículo como una Alerta de texto directo a la pantalla de OpenLP
+        final response = await http.post(
+          url,
+          body: {'text': mensajeCompleto},
+        ).timeout(const Duration(milliseconds: 1500));
+        return response.statusCode == 200;
+      } 
+      
+      // 🎬 CONFIGURACIÓN B: SI LA IGLESIA UTILIZA QUELEA
+      else {
+        // Quelea recibe comandos de alertas directas mediante su endpoint de control de pantalla
+        final url = Uri.parse('http://$ipComputadora:1112/api/v1/alert');
+        final response = await http.post(
+          url,
+          body: {'message': mensajeCompleto},
+        ).timeout(const Duration(milliseconds: 1500));
+        return response.statusCode == 200;
+      }
+    } catch (e) {
+      print('Aviso en el envío al proyector local: $e');
+      return false;
     }
   }
 }
