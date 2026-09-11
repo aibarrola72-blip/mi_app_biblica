@@ -1,0 +1,35 @@
+{
+    "name": "Biblia del Predicador",
+    "short_name": "Biblia del Predicador",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#4A0E17",
+    "theme_color": "#4A0E17",
+    "description": "Tu guía homilética y teológica para proclamar la Palabra con autoridad.",
+    "orientation": "portrait",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
