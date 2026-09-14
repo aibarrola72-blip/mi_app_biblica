@@ -979,9 +979,10 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
                           // (Recuerda definir '_ipComputadoraProyeccion' y '_plataformaProyeccion' arriba en tu clase)
                           bool enviado = await dbHelper.proyectarPasajeEnVivo(
                             ipComputadora: _ajustesGlobales.ipProyeccion,       // 🟢 Dinámico desde SharedPreferences
-                            plataforma: _ajustesGlobales.softwareProyeccion,   // 🟢 Cambia automáticamente a OpenLP o Quelea
+                            plataforma: _ajustesGlobales.softwareProyeccion,
+                            contrasena: _ajustesGlobales.contrasenaProyeccion,   // 🟢 Cambia automáticamente a OpenLP o Quelea
                             cita: cita,
-                            textoVersiculo: textoCompleto, 
+                            textoVersiculo: textoCompleto,                            
                           );
 
                           if (mounted) {

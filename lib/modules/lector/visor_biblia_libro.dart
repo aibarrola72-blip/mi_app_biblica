@@ -243,6 +243,18 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         });
       }
     } catch (_) {}
+    try {
+      if (_versiculos.isNotEmpty) {
+        _dbHelper.marcarCapituloComoLeido(
+          libroId: _libroSeleccionado,
+          capitulo: _capituloSeleccionado,
+          totalVersiculos: _versiculos.length,
+          soloRegistrarVisita: true, // 💡 Bandera lógica para que tu helper guarde en silencio sin mostrar SnackBars
+        );
+      }
+    } catch (e) {
+      print('Aviso en el registro automático de actividad: $e');
+    }
   }
 
   @override
@@ -495,6 +507,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     setState(() {
                       _libroSeleccionado = ultimoPunto['libro']!;
                       _capituloSeleccionado = ultimoPunto['capitulo']!;
+                      _versiculoInicio = ultimoPunto['versiculo']; // Restaura el foco visual del versículo
+                      _versiculoFin = null;
                     });
                     _cargarResaltadosYTexto(); // Lo regresa al pasaje original
                   },
@@ -1154,10 +1168,11 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     );
   }
   // Método modular para guardar el rastro de lectura antes del salto
-  void _histOriginalRegresoAlSaltar() {
+  void _histOriginalRegresoAlSaltar({int? versiculo}) {
     _historialNavegacionRegreso.add({
       'libro': _libroSeleccionado,
      'capitulo': _capituloSeleccionado,
+     'versiculo': versiculo ?? _versiculoInicio ?? 1,
     });
   }  
 
@@ -1194,6 +1209,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   }
 
   Widget _construirBarraNavegacionRapida() {
+    String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
+    final int totalCapitulosDelLibro = _dbHelper.obtenerTotalCapitulos(_libroSeleccionado);
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
@@ -1202,8 +1219,21 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back_ios, size: 18),
-            onPressed: _capituloSeleccionado > 1 
-                ? () { setState(() => _capituloSeleccionado--); _cargarResaltadosYTexto(); }
+            onPressed: (_capituloSeleccionado > 1 || _libroSeleccionado > 1) 
+                ? () { 
+                   _histOriginalRegresoAlSaltar(); 
+                  setState(() {
+                      if (_capituloSeleccionado > 1) {
+                        // Caso A: Retrocede un capítulo en el mismo libro
+                        _capituloSeleccionado--;
+                      } else {
+                        // Caso B: Llegó al capítulo 1, retrocede al libro anterior y va a su último capítulo
+                        _libroSeleccionado--;
+                        _capituloSeleccionado = _dbHelper.obtenerTotalCapitulos(_libroSeleccionado);
+                      }
+                    });
+                    _cargarResaltadosYTexto();
+                  }
                 : null,
           ),
           TextButton.icon(
@@ -1213,10 +1243,22 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
           ),
           IconButton(
             icon: const Icon(Icons.arrow_forward_ios, size: 18),
-            onPressed: () { 
-            setState(() => _capituloSeleccionado++); 
-            _cargarResaltadosYTexto(); // <-- CORRECCIÓN: Nombre de método correcto
-            },
+            onPressed: (_capituloSeleccionado < totalCapitulosDelLibro || _libroSeleccionado < 66) 
+            ? () {
+               _histOriginalRegresoAlSaltar(); 
+              setState(() {
+                      if (_capituloSeleccionado < totalCapitulosDelLibro) {
+                        // Caso A: Avanza un capítulo en el mismo libro
+                        _capituloSeleccionado++;
+                      } else {
+                        // Caso B: Llegó al límite del libro, salta al capítulo 1 del siguiente libro
+                        _libroSeleccionado++;
+                        _capituloSeleccionado = 1;
+                      }
+                    });
+                    _cargarResaltadosYTexto(); // <-- CORRECCIÓN: Nombre de método correcto
+            }
+            : null, // Se apaga por completo si está en Apocalipsis 22 (Fin de la Biblia)
           ),
         ],
       ),
@@ -1224,118 +1266,137 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   }
 
   // Cuadro de diálogo modal rápido para saltar directo a cualquier libro de la Biblia
+  // LA MEJOR OPCIÓN: Selector unificado con pestañas (TabBar) integradas
   void _mostrarSelectorLibroYCapitulo() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // Permite expandir el menú para ver cómodamente los libros
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.8, // Ocupa el 80% de la pantalla
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Selecciona un Libro de la Biblia',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A73E8)),
-              ),
-              const Divider(),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: 66, // Los 66 libros del canon
-                  itemBuilder: (context, index) {
-                    final int libroId = index + 1;
-                    final String nombreLibro = _dbHelper.obtenerNombreLibro(libroId);
-
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue.shade50,
-                        child: Text('$libroId', style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)),
-                      ),
-                      title: Text(nombreLibro, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                      onTap: () {
-                        Navigator.pop(context); // Cierra la lista de libros
-                        _mostrarSelectorCapitulosDialog(libroId, nombreLibro); // Abre el selector de capítulos
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // MÉTODO AUXILIAR: Muestra un diálogo rápido para elegir el capítulo del libro seleccionado
-  // CORRECCIÓN DEFINITIVA: Despliega una cuadrícula con los capítulos reales del libro
-  void _mostrarSelectorCapitulosDialog(int libroId, String nombreLibro) {
-    // Consultamos al helper cuántos capítulos tiene este libro de forma matemática exacta
-    final int maxCapitulos = _dbHelper.obtenerTotalCapitulos(libroId);
+    // Inicializamos variables temporales con lo que el usuario está leyendo actualmente
+    int libroIdTemporal = _libroSeleccionado ?? 1;
+    String nombreLibroTemporal = _libroSeleccionado != null 
+        ? _dbHelper.obtenerNombreLibro(_libroSeleccionado!) 
+        : 'Seleccionado';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.6, // Ocupa el 60% de la pantalla
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Capítulos disponibles de $nombreLibro',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-              ),
-              const Text('Selecciona el número que deseas estudiar:', style: TextStyle(fontSize: 13, color: Colors.grey)),
-              const Divider(),
-              Expanded(
-                // GridView: Dibuja una rejilla estética de botones numéricos
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 5, // 5 botones por fila en el celular
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: maxCapitulos,
-                  itemBuilder: (context, index) {
-                    final int capNum = index + 1;
-                    return InkWell(
-                      onTap: () {
-                        setState(() {
-                          _libroSeleccionado = libroId;
-                          _capituloSeleccionado = capNum;
-                        });
-                        _cargarResaltadosYTexto();
-                        Navigator.pop(context); // Cierra la rejilla de capítulos
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.black12),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$capNum',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+        // DefaultTabController maneja el estado de las pestañas automáticamente
+        // Si ya hay un libro, inicia en la pestaña 1 (Capítulos). Si no, en la 0 (Libros).
+        final int indiceInicial = (_libroSeleccionado != null && _libroSeleccionado! > 0) ? 1 : 0;
+
+        return DefaultTabController(
+          length: 2,
+          initialIndex: indiceInicial,
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Container(
+                height: MediaQuery.of(context).size.height * 0.85, // Un poco más alto para las pestañas
+                padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
+                child: Column(
+                  children: [
+                    // DISEÑO DE PESTAÑAS (TABBAR)
+                    TabBar(
+                      labelColor: const Color(0xFF1A73E8),
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: const Color(0xFF1A73E8),
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      tabs: [
+                        const Tab(text: 'LIBROS'),
+                        Tab(text: 'CAPÍTULOS ($nombreLibroTemporal)'),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // CONTENIDO DE LAS PESTAÑAS
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          
+                          // PESTAÑA 0: Lista de Libros
+                          ListView.builder(
+                            itemCount: 66,
+                            itemBuilder: (context, index) {
+                              final int libroId = index + 1;
+                              final String nombreLibro = _dbHelper.obtenerNombreLibro(libroId);
+                              final bool esLibroActual = libroId == _libroSeleccionado;
+
+                              return ListTile(
+                                selected: esLibroActual,
+                                selectedTileColor: Colors.blue.shade50.withOpacity(0.4),
+                                leading: CircleAvatar(
+                                  backgroundColor: esLibroActual ? Colors.blue : Colors.blue.shade50,
+                                  child: Text('$libroId', style: TextStyle(fontSize: 12, color: esLibroActual ? Colors.white : Colors.blue, fontWeight: FontWeight.bold)),
+                                ),
+                                title: Text(nombreLibro, style: TextStyle(fontWeight: esLibroActual ? FontWeight.bold : FontWeight.w600, fontSize: 16)),
+                                trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                                onTap: () {
+                                  // Al tocar un libro, actualizamos el estado interno del modal
+                                  setModalState(() {
+                                    libroIdTemporal = libroId;
+                                    nombreLibroTemporal = nombreLibro;
+                                  });
+                                  // Cambiamos automáticamente a la pestaña de capítulos
+                                  DefaultTabController.of(context).animateTo(1);
+                                },
+                              );
+                            },
                           ),
-                        ),
+
+                          // PESTAÑA 1: Cuadrícula de Capítulos
+                          GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 5,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                            ),
+                            itemCount: _dbHelper.obtenerTotalCapitulos(libroIdTemporal),
+                            itemBuilder: (context, index) {
+                              final int capNum = index + 1;
+                              final bool esCapituloActual = libroIdTemporal == _libroSeleccionado && capNum == _capituloSeleccionado;
+
+                              return InkWell(
+                                onTap: () {
+                                  // Guardamos la selección definitiva en la pantalla principal
+                                  setState(() {
+                                    _libroSeleccionado = libroIdTemporal;
+                                    _capituloSeleccionado = capNum;
+                                  });
+                                  _cargarResaltadosYTexto();
+                                  Navigator.pop(context); // Cierra el modal
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: esCapituloActual ? Colors.blue : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: esCapituloActual ? Colors.blue : Colors.black12),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$capNum',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: esCapituloActual ? Colors.white : Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         );
       },
     );
   }
+
   DropdownMenuItem<String> _construirItemConIcono(String version, bool modoOscuro) {
     return DropdownMenuItem<String>(
       value: version,

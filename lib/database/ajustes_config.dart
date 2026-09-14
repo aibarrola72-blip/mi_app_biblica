@@ -20,9 +20,11 @@ class AjustesConfig extends ChangeNotifier {
 
   String _ipProyeccion = "192.168.1.50";
   String _softwareProyeccion = "OpenLP";
+  String _contrasenaProyeccion = "";
 
   String get ipProyeccion => _ipProyeccion;
   String get softwareProyeccion => _softwareProyeccion;
+  String get contrasenaProyeccion => _contrasenaProyeccion;
 
   void cambiarModoPulpito(bool activado) {
     _modoPulpitoActivo = activado;
@@ -48,6 +50,8 @@ class AjustesConfig extends ChangeNotifier {
 
     _ipProyeccion = prefs.getString('ip_proyeccion') ?? "192.168.1.50";
     _softwareProyeccion = prefs.getString('software_proyeccion') ?? "OpenLP";
+    _contrasenaProyeccion = prefs.getString('contrasena_proyeccion') ?? "";
+
     notifyListeners();
   }
 
@@ -117,12 +121,15 @@ class AjustesConfig extends ChangeNotifier {
   }
 
   // Métodos públicos para guardar los nuevos valores en la memoria flash
-  Future<void> guardarConfiguracionProyector(String nuevaIp, String nuevoSoftware) async {
+  Future<void> guardarConfiguracionProyector(String nuevaIp, String nuevoSoftware, String nuevaContrasena) async {
     final prefs = await SharedPreferences.getInstance();
     _ipProyeccion = nuevaIp;
     _softwareProyeccion = nuevoSoftware;
+    _contrasenaProyeccion = nuevaContrasena;
     await prefs.setString('ip_proyeccion', nuevaIp);
     await prefs.setString('software_proyeccion', nuevoSoftware);
+    await prefs.setString('contrasena_proyeccion', nuevaContrasena);
+
     notifyListeners();
   }
 }

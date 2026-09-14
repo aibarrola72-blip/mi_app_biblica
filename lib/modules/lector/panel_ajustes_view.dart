@@ -118,7 +118,8 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                               if (nuevoSoftware != null) {
                                 widget.ajustes.guardarConfiguracionProyector(
                                   widget.ajustes.ipProyeccion, 
-                                  nuevoSoftware
+                                  nuevoSoftware,
+                                  widget.ajustes.contrasenaProyeccion
                                 );
                               }
                             },
@@ -143,14 +144,36 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                               // Guardamos el cambio de IP en SharedPreferences en tiempo real
                               widget.ajustes.guardarConfiguracionProyector(
                                 nuevaIp.trim(), 
-                                widget.ajustes.softwareProyeccion
+                                widget.ajustes.softwareProyeccion,
+                                widget.ajustes.contrasenaProyeccion
                               );
                             },
                           ),
-                        ),
+                        ),                        
                       ],
                     ),
 
+                    // 🚀 AGREGA ESTE WIDGET DEBAJO DEL TEXTFORMFIELD DE LA IP EN TU PANELAJUSTESVIEW
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          initialValue: widget.ajustes.contrasenaProyeccion,
+                          obscureText: true, // Oculta la contraseña por privacidad pastoral
+                          decoration: InputDecoration(
+                            labelText: 'Contraseña de Quelea / OpenLP',
+                            hintText: 'Ingrese la clave configurada en la PC',
+                            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onChanged: (nuevaClave) {
+                            // Guardamos la contraseña en tiempo real junto con la IP y el Software actual
+                            widget.ajustes.guardarConfiguracionProyector(
+                              widget.ajustes.ipProyeccion,
+                              widget.ajustes.softwareProyeccion,
+                              nuevaClave.trim(),
+                            );
+                          },
+                        ),
                     // 3. Selector de Color de Fondo
                     const Text('Color de Fondo de Lectura:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                     const SizedBox(height: 12),

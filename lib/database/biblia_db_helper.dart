@@ -91,24 +91,24 @@ class BibliaDatabaseHelper {
 
   // Añade esto en tu clase BibliaDatabaseHelper debajo de obtenerLibroId
   Map<String, int> obtenerMapaAbreviaturas() {
-  return {
-    'genesis': 1, 'exodo': 2, 'levitico': 3, 'numeros': 4, 'deuteronomio': 5, 'josue': 6, 'jueces': 7,
-    'rut': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
-    '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
-    'nehemias': 16, 'ester': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
-    'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
-    'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
-    'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
-    'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
-    'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
-    'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
-    '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
-    'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
-    '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
-    'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
-    '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
-  };
-}
+    return {
+      'genesis': 1, 'exodo': 2, 'levitico': 3, 'numeros': 4, 'deuteronomio': 5, 'josue': 6, 'jueces': 7,
+      'rut': 8, '1 samuel': 9, '1sm': 9, '2 samuel': 10, '2sm': 10, '1 reyes': 11, '1re': 11,
+      '2 reyes': 12, '2re': 12, '1 cronicas': 13, '1cr': 13, '2 cronicas': 14, '2cr': 14, 'esdras': 15,
+      'nehemias': 16, 'ester': 17, 'job': 18, 'salmos': 19, 'sal': 19, 'proverbios': 20,
+      'pr': 20, 'eclesiastes': 21, 'ec': 21, 'cantares': 22, 'cnt': 22, 'isaias': 23, 'is': 23, 'jeremias': 24,
+      'jr': 24, 'lamentaciones': 25, 'ezequiel': 26, 'ez': 26, 'daniel': 27, 'dn': 27, 'oseas': 28, 'os': 28,
+      'joel': 29, 'jl': 29, 'amos': 30, 'am': 30, 'abdias': 31, 'abd': 31, 'jonas': 32, 'jon': 32, 'miqueas': 33, 'mi': 33,
+      'nahum': 34, 'habacuc': 35, 'sofonias': 36, 'sof': 36, 'hageo': 37, 'zacarias': 38, 'zac': 38, 'malaquias': 39,
+      'mal': 39, 'mateo': 40, 'mt': 40, 'marcos': 41, 'mr': 41, 'lucas': 42, 'lc': 42, 'juan': 43, 'jn': 43,
+      'hechos': 44, 'hch': 44, 'romanos': 45, 'ro': 45, '1 corintios': 46, '1co': 46, '1 cor': 46,
+      '2 corintios': 47, '2co': 47, 'galatas': 48, 'gl': 48, 'efesios': 49, 'ef': 49, 'filipenses': 50, 'flp': 50,
+      'colosenses': 51, 'col': 51, '1 tesalonicenses': 52, '1ts': 52, '2 tesalonicenses': 53, '2ts': 53,
+      '1 timoteo': 54, '1ti': 54, '2 timoteo': 55, '2ti': 55, 'tito': 56, 'tit': 56, 'filemon': 57, 'flm': 57,
+      'hebreos': 58, 'heb': 58, 'santiago': 59, 'stg': 59, 'st': 59, '1 pedro': 60, '1p': 60, '2 pedro': 61,
+      '2p': 61, '1 juan': 62, '1jn': 62, '2 juan': 63, '2jn': 63, '3 juan': 64, '3jn': 64, 'judas': 65, 'apocalipsis': 66, 'ap': 66
+    };
+  }
 
   // int obtenerLibroId(String nombreLibro) => _diccionarioLibros[nombreLibro.toLowerCase().trim()] ?? 43;
   String obtenerNombreLibro(int libroId) => _nombresLibros[libroId] ?? 'Libro $libroId';
@@ -639,12 +639,16 @@ class BibliaDatabaseHelper {
   }
 
   /// 🚀 REGISTRO DE AVANCE DEVOCIONAL Y CÁLCULO DE RACHAS  
-  Future<bool> marcarCapituloComoLeido({required int libroId, required int capitulo, required int totalVersiculos}) async {
+  // 🚀 REEMPLAZA TU FUNCIÓN EN BIBLIA_DB_HELPER.DART POR ESTA VERSIÓN INTEGRADA
+  Future<bool> marcarCapituloComoLeido({
+    required int libroId, 
+    required int capitulo, 
+    required int totalVersiculos,
+    bool soloRegistrarVisita = false, // 🟢 1. Declaramos el parámetro opcional de control
+  }) async {
     try {
-      // 🚀 LA CLAVE MULTIUSAURIO: Captura el UUID automático real generado por Google/Supabase
       final String? usuarioUid = _client.auth.currentUser?.id;
       
-      // Si por alguna razón el token expiró o no hay sesión, abortamos para proteger la base de datos
       if (usuarioUid == null) {
         print('🔴 Intento de guardado devocional bloqueado: No hay una sesión de usuario activa.');
         return false;
@@ -653,16 +657,23 @@ class BibliaDatabaseHelper {
       final DateTime ahoraLocal = DateTime.now();
       final String fechaHoyPlana = "${ahoraLocal.year}-${ahoraLocal.month.toString().padLeft(2, '0')}-${ahoraLocal.day.toString().padLeft(2, '0')}";
 
-      // Guardamos el progreso del capítulo inyectando el UUID dinámico
+      // 2. REGISTRO DEL CAPÍTULO: Esto se ejecuta SIEMPRE (manual o automático)
       await _client.from('progreso_lectura').upsert({
-        'usuario_id': usuarioUid, // 🚀 ID Automático asignado
+        'usuario_id': usuarioUid, 
         'libro_id': libroId,
         'capitulo': capitulo,
         'versiculos_leidos': totalVersiculos,
         'fecha_lectura': ahoraLocal.toIso8601String(),
       }, onConflict: 'usuario_id, libro_id, capitulo');
 
-      // Evaluamos el perfil del pastor para calcular la racha usando el UUID
+      // 🚀 3. EL FRENO DE MANO: Si es solo una visita o lectura automática,
+      // guardamos el progreso y salimos de inmediato, SIN alterar el perfil de la racha.
+      if (soloRegistrarVisita) {
+        print('📊 Progreso de lectura guardado en silencio en Supabase.');
+        return true; 
+      }
+
+      // 4. CÁLCULO DE RACHA PESADO: Solo se ejecuta si el pastor presiona el botón MANUALMENTE
       final perfil = await _client.from('perfiles_pastor').select('racha_actual, ultima_fecha_lectura').eq('id', usuarioUid).maybeSingle();
       int nuevaRacha = 1;
 
@@ -900,11 +911,17 @@ class BibliaDatabaseHelper {
     required String ipComputadora, 
     required String plataforma, 
     required String cita, 
-    required String textoVersiculo
+    required String textoVersiculo,
+    required String contrasena,
+    int puerto = 1112,
   }) async {
     try {
-      final String mensajeCompleto = '"$textoVersiculo" — $cita';
+      final String mensajeCompleto = '"$textoVersiculo" \n— $cita';
 
+      if (ipComputadora.isEmpty) {
+        print('❌ No se indicó la IP de la computadora.');
+        return false;
+      }
       // 🎬 CONFIGURACIÓN A: SI LA IGLESIA UTILIZA OPENLP
       if (plataforma == "OpenLP") {
         final url = Uri.parse('http://$ipComputadora:1920/api/v1/alerts/text');
@@ -912,23 +929,42 @@ class BibliaDatabaseHelper {
         final response = await http.post(
           url,
           body: {'text': mensajeCompleto},
-        ).timeout(const Duration(milliseconds: 1500));
-        return response.statusCode == 200;
+        ).timeout(const Duration(seconds: 3));
+        print(
+          'OpenLP respondió: '
+          '${response.statusCode} - ${response.body}',
+        );
+        return response.statusCode >= 200 &&
+          response.statusCode < 300;
       } 
       
       // 🎬 CONFIGURACIÓN B: SI LA IGLESIA UTILIZA QUELEA
-      else {
+      if (plataforma == 'Quelea') {
         // Quelea recibe comandos de alertas directas mediante su endpoint de control de pantalla
-        final url = Uri.parse('http://$ipComputadora:1112/api/v1/alert');
+        final url = Uri.parse('http://$ipComputadora:$puerto/remote/html',);
+        final String credencialesCifradas = base64Encode(utf8.encode(':$contrasena'));
         final response = await http.post(
-          url,
-          body: {'message': mensajeCompleto},
-        ).timeout(const Duration(milliseconds: 1500));
-        return response.statusCode == 200;
-      }
+          url,          
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': 'Basic $credencialesCifradas',
+          },
+          body: jsonEncode({'text': mensajeCompleto,
+              'cita': cita,
+              'versiculo': textoVersiculo,}),
+        ).timeout(const Duration(seconds: 3));
+        print(
+          'Quelea respondió: '
+          '${response.statusCode} - ${response.body}',
+        );
+        return response.statusCode >= 200 && response.statusCode < 300;
+      } 
+      print('❌ Plataforma no reconocida: $plataforma');
+      return false;     
     } catch (e) {
-      print('Aviso en el envío al proyector local: $e');
-      return false;
+      print('❌ Error al proyectar pasaje: $e');
+    return false;
     }
   }
 }
