@@ -358,7 +358,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     final textoPlano = _controller.document.toPlainText();
     
     // 🔍 Expresión Regular flexible: Captura el libro, capítulo y versículo
-    final regExp = RegExp(r'\b([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+):([0-9]+)\b');
+    final regExp = RegExp(r'(?:^|(?<=\s))([1-3]?\s?[A-Za-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+):([0-9]+)(?=\s|$|\b)');
     final matches = regExp.allMatches(textoPlano);
     
     if (matches.isEmpty && _pasajesDetectados.isEmpty) return;
