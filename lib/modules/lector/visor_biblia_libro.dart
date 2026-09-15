@@ -23,8 +23,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   String _versionSeleccionada = 'RV1960';
   int _libroSeleccionado = 1; 
   int _capituloSeleccionado = 1;
-  int? _versiculoInicio;
-  int? _versiculoFin;
+   List<int> _versiculosSeleccionados = [];
   
   List<Map<String, dynamic>> _versiculos = [];
   bool _cargando = true;
@@ -36,7 +35,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   // 🚀 CONECTORES: Almacena qué versículos del capítulo actual tienen enlaces para ponerles el ícono 🔗
   final Set<int> _versiculosConReferenciasCargados = {};
   
-  final Set<int> _versiculosSeleccionados = {};
   bool _modoSeleccionMultiple = false;
   // final AjustesConfig _ajustesGlobales = AjustesConfig();
   late final AjustesConfig _ajustesGlobales;
@@ -257,6 +255,34 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     }
   }
 
+  // Método auxiliar matemático para agrupar citas correlativas
+  String _formatearVersiculosCita(List<int> lista) {
+    if (lista.isEmpty) return '';
+    List<String> segmentos = [];
+    int inicio = lista[0];
+    int fin = lista[0];
+
+    for (int i = 1; i < lista.length; i++) {
+      if (lista[i] == fin + 1) {
+        fin = lista[i];
+      } else {
+        if (inicio == fin) {
+          segmentos.add('$inicio');
+        } else {
+          segmentos.add('$inicio-$fin');
+        }
+        inicio = lista[i];
+        fin = lista[i];
+      }
+    }
+    if (inicio == fin) {
+      segmentos.add('$inicio');
+    } else {
+      segmentos.add('$inicio-$fin');
+    }
+    return segmentos.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
@@ -387,7 +413,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       ),
       
       // Botones flotantes inferiores dinámicos (Aparecen automáticamente al seleccionar un rango)
-      bottomNavigationBar: _versiculoInicio != null
+      bottomNavigationBar: _versiculosSeleccionados.isNotEmpty
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
               decoration: BoxDecoration(
@@ -405,11 +431,10 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     Builder(
                       builder: (context) {
                         final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                        final String textoCita = _versiculoFin == null || _versiculoInicio == _versiculoFin
-                            ? '$nombreLibro $_capituloSeleccionado:$_versiculoInicio'
-                            : '$nombreLibro $_capituloSeleccionado:$_versiculoInicio-$_versiculoFin';
+                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
                         return Text(
-                          textoCita,
+                          '$nombreLibro $_capituloSeleccionado:$versiculosFormateados',
                           style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 14),
                         );
                       },
@@ -427,28 +452,21 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       onPressed: () {
                         final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
                         // Determinamos el inicio y fin correctos matemáticamente
-                        final int inicio = _versiculoInicio!;
-                        final int fin = _versiculoFin ?? _versiculoInicio!;
-                        final int menor = inicio < fin ? inicio : fin;
-                        final int mayor = inicio > fin ? inicio : fin;
-
-                        StringBuffer textoCompletoBloque = StringBuffer();                    
+                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                        StringBuffer textoCompletoBloque = StringBuffer();                  
                         // Recorremos el rango continuo entre el menor y el mayor seleccionado
-                        for (int numV = menor; numV <= mayor; numV++) {
+                        for (int numV in ordenados) {
                           final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV, orElse: () => {});
                           if (vData.isNotEmpty) {
                             textoCompletoBloque.write('[$numV] ${vData['texto']}\n');
                           }
                         }
 
-                        final String citaRango = menor == mayor 
-                            ? '$nombreLibro $_capituloSeleccionado:$menor'
-                            : '$nombreLibro $_capituloSeleccionado:$menor-$mayor';
-
-                        final String mensajeFinal = '$textoCompletoBloque— $citaRango ($_versionSeleccionada)';
-                        
-                        Share.share(mensajeFinal);
-                        setState(() { _versiculoInicio = null; _versiculoFin = null; });
+                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
+                        final String message = '$textoCompletoBloque— $nombreLibro $_capituloSeleccionado:$versiculosFormateados ($_versionSeleccionada)';
+                                                
+                        Share.share(message);
+                        setState(() {  _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
                       },
                     ),
                     
@@ -463,17 +481,12 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       label: const Text('Insertar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                       onPressed: () {
                         final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);                 
-                        final int inicio = _versiculoInicio!;
-                        final int fin = _versiculoFin ?? _versiculoInicio!;
-                        final int menor = inicio < fin ? inicio : fin;
-                        final int mayor = inicio > fin ? inicio : fin;
-                        
-                        final String citaRango = menor == mayor
-                            ? '$nombreLibro $_capituloSeleccionado:$menor'
-                            : '$nombreLibro $_capituloSeleccionado:$menor-$mayor';
-                        
+                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
+                        final String citaRango = '$nombreLibro $_capituloSeleccionado:$versiculosFormateados';
+                                                
                         CanalEventos().enviarCitaAlEditor(citaRango);
-                        setState(() { _versiculoInicio = null; _versiculoFin = null; });
+                        setState(() { _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
                       },
                     ),
                     
@@ -507,8 +520,11 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                     setState(() {
                       _libroSeleccionado = ultimoPunto['libro']!;
                       _capituloSeleccionado = ultimoPunto['capitulo']!;
-                      _versiculoInicio = ultimoPunto['versiculo']; // Restaura el foco visual del versículo
-                      _versiculoFin = null;
+                      _versiculosSeleccionados.clear(); // Restaura el foco visual del versículo
+                     if (ultimoPunto['versiculo'] != null) {
+                        _versiculosSeleccionados.add(ultimoPunto['versiculo']!);
+                        _modoSeleccionMultiple = true;
+                      }
                     });
                     _cargarResaltadosYTexto(); // Lo regresa al pasaje original
                   },
@@ -635,25 +651,23 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                       final int? colorHex = _resaltadosLocales[llaveResaltado];                                            
                       // 🚀 NUEVO: Evalúa si este versículo específico tiene enlaces mapeados
                       final bool tieneReferencia = _versiculosConReferenciasCargados.contains(numVerso);
+                      // Validación directa contra la lista dinámica
+                      final bool estaMarcadoActual = _versiculosSeleccionados.contains(numVerso);
 
                       return InkWell(
                         onTap: () {
                           setState(() {
                             // 1. Si no hay nada seleccionado, marcamos el inicio
-                            if (_versiculoInicio == null || (_versiculoInicio != null && _versiculoFin != null)) {
-                              _versiculoInicio = numVerso;
-                              _versiculoFin = null;
-                            } else if (_versiculoInicio == numVerso) {
-                              _versiculoInicio = null;
-                              _versiculoFin = null;                            
-                            }else {                              
-                              _versiculoFin = numVerso;
-                            }                            
+                            if (estaMarcadoActual) {
+                              _versiculosSeleccionados.remove(numVerso);
+                            } else {
+                              _versiculosSeleccionados.add(numVerso);
+                            }
+                            _modoSeleccionMultiple = _versiculosSeleccionados.isNotEmpty;
                           });
                         },
                         splashColor: Colors.transparent,
-                        highlightColor: Colors.transparent,
-
+                        highlightColor: Colors.transparent,                        
                         child: Container(
                           color: Colors.transparent, 
                           padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
@@ -661,25 +675,13 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // 🚀 Muestra el eslabón interactivo si tiene referencias y no hay selección activa
-                              if (tieneReferencia && _versiculoInicio == null)
+                              if (tieneReferencia && _versiculosSeleccionados.isEmpty)
                                 const Padding(
                                   padding: EdgeInsets.only(right: 6.0, top: 3.0),
                                   child: Icon(Icons.link, size: 16, color: Colors.blue),
                                 ),
                               Expanded(
-                                child: Builder(
-                                  builder: (context) {
-                                    // Calculamos matemáticamente si este versículo específico está dentro del rango seleccionado
-                                    bool estaEnRangoTemporal = false;
-                                    if (_versiculoInicio != null) {
-                                      final int inicio = _versiculoInicio!;
-                                      final int fin = _versiculoFin ?? _versiculoInicio!;
-                                      final int menor = inicio < fin ? inicio : fin;
-                                      final int mayor = inicio > fin ? inicio : fin;
-                                      estaEnRangoTemporal = numVerso >= menor && numVerso <= mayor;
-                                    }
-
-                                    return RichText(
+                                child: RichText(
                                       text: TextSpan(
                                         style: TextStyle(
                                           fontSize: _ajustesGlobales.tamanoLetra, 
@@ -702,24 +704,23 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                                             text: v['texto'] ?? '',
                                             style: TextStyle(
                                               // Prioridad al sombreado de selección azul fluido, si no, respeta el color pintado de la BD
-                                              backgroundColor: estaEnRangoTemporal
+                                              backgroundColor: estaMarcadoActual
                                                   ? Colors.blue.withValues(alpha: 0.25) 
                                                   : (colorHex != null ? Color(colorHex).withValues(alpha: 0.35) : Colors.transparent),
                                             ),
                                           ),
                                         ],
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),          
+                            ),
+                          );
+                        },
+                      ),
+          ),
+                     
           // Barra de información inferior persistente
           Container(
             width: double.infinity,
@@ -964,22 +965,17 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
   // 🎨 MODO UNIFICADO: Sombrea desde un solo versículo hasta un rango completo
   void _mostrarPaletaColoresRango() {
-    // Determinamos el rango matemático seguro
-    final int inicio = _versiculoInicio ?? 1;
-    final int fin = _versiculoFin ?? inicio;
-    final int menor = inicio < fin ? inicio : fin;
-    final int mayor = inicio > fin ? inicio : fin;
-
-    // Título dinámico para la paleta según el rango seleccionado
-    final String tituloPaleta = menor == mayor 
-        ? 'Sombrear versículo $menor:' 
-        : 'Sombrear bloque del $menor al $mayor:';
+    if (_versiculosSeleccionados.isEmpty) return;
+    List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+    final String tituloPaleta = ordenados.length == 1
+    ? 'Sombrear versículo ${ordenados.first}:'
+    : 'Sombrear versículos (${_formatearVersiculosCita(ordenados)}):';
 
     _mostrarPaletaBase(
       tituloPaleta, 
       (colorValue) {
         // Aplicamos el color a todo el rango continuo
-        for (int verso = menor; verso <= mayor; verso++) {
+        for (int verso in ordenados) {
           _alternarResaltadoVersiculoEnLote(verso, colorValue);
         }
         _limpiarSeleccionYGuardar();
@@ -987,22 +983,22 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       },
       () {
         // Borramos el sombreado (color 0) a todo el rango continuo
-        for (int verso = menor; verso <= mayor; verso++) {
+        for (int verso in ordenados) {
           _alternarResaltadoVersiculoEnLote(verso, 0); 
         }
         _limpiarSeleccionYGuardar();
         Navigator.pop(context); 
       },
       // Pasamos el ID del verso individual solo si es un único versículo seleccionado
-      versiculoIndividual: menor == mayor ? menor : null, 
+      versiculoIndividual: ordenados.length == 1 ? ordenados.first : null, 
     );
   }
 
   // Función auxiliar para limpiar la pantalla y persistir en base de datos
   void _limpiarSeleccionYGuardar() async {
     setState(() {
-      _versiculoInicio = null;
-      _versiculoFin = null;
+      _versiculosSeleccionados.clear();
+      _modoSeleccionMultiple = false;
     });
     
     // 1. Guarda en SharedPreferences al instante para que la UI reaccione rápido
@@ -1052,10 +1048,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                            final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
                           
                         //   // 2. Estructuramos el string de la cita exacta: "1 Corintios 14:3"
-                           final String citaFormateada = '$nombreLibro $_capituloSeleccionado:$versiculoIndividual';
-                          
                         //   // 3. Emitimos la señal de radio al editor por el Canal Global
-                           CanalEventos().enviarCitaAlEditor(citaFormateada);
+                           CanalEventos().enviarCitaAlEditor('$nombreLibro $_capituloSeleccionado:$versiculoIndividual');
                           
                         //   // 4. Cerramos el menú contextual automáticamente
                            Navigator.pop(context);
@@ -1070,12 +1064,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                           final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
                           // Buscamos el texto del versículo actual en la lista local
                           final vData = _versiculos.firstWhere((element) => element['versiculo'] == versiculoIndividual);
-                          final String textoVerso = vData['texto'] ?? '';
-
-                          final String mensajeACompartir = '"$textoVerso" — $nombreLibro $_capituloSeleccionado:$versiculoIndividual ($_versionSeleccionada)';
-                          
-                          // Disparamos la hoja de compartir nativa de Android/iOS/Web
-                          Share.share(mensajeACompartir);
+                          Share.share('"${vData['texto'] ?? ''}" — $nombreLibro $_capituloSeleccionado:$versiculoIndividual ($_versionSeleccionada)');
                           Navigator.pop(context);
                         },
                       ),
@@ -1085,8 +1074,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                         icon: const Icon(Icons.compare, color: Colors.indigo, size: 28),
                         tooltip: 'Comparar traducciones',
                         onPressed: () {
-                          Navigator.pop(context); // Cierra la paleta de colores
-                          
+                          Navigator.pop(context); // Cierra la paleta de colores                          
                           // 🚀 SEGURO: Le pasamos la variable que la paleta recibió en su declaración
                           _mostrarDialogoComparativaVersiones(versiculoIndividual);
                         },
@@ -1102,7 +1090,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                 // 🚀 EFECTO DOMINÓ DESDE EL FUTUREBUILDER INTEGRADO PERFECTAMENTE
                 if (versiculoIndividual != null) ...[
                   const Divider(height: 20),
-                  const Text('🔗 Pasajes Relacionados (Efecto Dominó):',
+                  const Text('🔗 Pasajes Relacionados',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blueGrey)
                   ),
                   const SizedBox(height: 6),
@@ -1172,7 +1160,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     _historialNavegacionRegreso.add({
       'libro': _libroSeleccionado,
      'capitulo': _capituloSeleccionado,
-     'versiculo': versiculo ?? _versiculoInicio ?? 1,
+     'versiculo': versiculo ?? (_versiculosSeleccionados.isNotEmpty ?
+     _versiculosSeleccionados.first : 1),
     });
   }  
 
@@ -1209,7 +1198,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   }
 
   Widget _construirBarraNavegacionRapida() {
-    String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
     final int totalCapitulosDelLibro = _dbHelper.obtenerTotalCapitulos(_libroSeleccionado);
     return Container(
       color: Colors.white,
@@ -1269,10 +1257,8 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   // LA MEJOR OPCIÓN: Selector unificado con pestañas (TabBar) integradas
   void _mostrarSelectorLibroYCapitulo() {
     // Inicializamos variables temporales con lo que el usuario está leyendo actualmente
-    int libroIdTemporal = _libroSeleccionado ?? 1;
-    String nombreLibroTemporal = _libroSeleccionado != null 
-        ? _dbHelper.obtenerNombreLibro(_libroSeleccionado!) 
-        : 'Seleccionado';
+    int libroIdTemporal = _libroSeleccionado;
+    String nombreLibroTemporal = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
 
     showModalBottomSheet(
       context: context,
@@ -1281,7 +1267,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       builder: (context) {
         // DefaultTabController maneja el estado de las pestañas automáticamente
         // Si ya hay un libro, inicia en la pestaña 1 (Capítulos). Si no, en la 0 (Libros).
-        final int indiceInicial = (_libroSeleccionado != null && _libroSeleccionado! > 0) ? 1 : 0;
+        final int indiceInicial = ( _libroSeleccionado > 0) ? 1 : 0;
 
         return DefaultTabController(
           length: 2,
