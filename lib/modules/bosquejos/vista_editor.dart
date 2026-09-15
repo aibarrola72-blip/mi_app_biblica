@@ -294,7 +294,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
 
     // 2. 🚀 MOTOR DE INTERCEPCIÓN ENERGETIZADO E INMUNE A ACENTOS:
     try {
-      final RegExp regexInyeccion = RegExp(r'([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+)\s*:\s*([0-9]+)');
+      final RegExp regexInyeccion = RegExp(r'([1-3]?\s?[A-Za-záéíóúÁÉÍÓÚñÑ\.]+)\s+([0-9]+)\s*:\s*([0-9]+)');
       final match = regexInyeccion.firstMatch(cita.trim());
 
       if (match != null) {
@@ -307,13 +307,14 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
         if (libroId != 0) {
           final int cap = int.parse(match.group(2)!);
           final int ver = int.parse(match.group(3)!);
+          final String nombreCanonicoEstable = dbHelper.obtenerNombreLibro(libroId);
 
           setState(() {
             _pasajeSeleccionado = PasajeBiblico(
               libroId: libroId,
               capitulo: cap,
               versiculo: ver,
-              textoOriginal: '$nombreLibroRaw $cap:$ver',
+              textoOriginal: '$nombreCanonicoEstable $cap:$ver',
             );
             _mostrarBuscadorEnTablet = false; // Cambia automático de pestaña al Lector
           });
@@ -371,7 +372,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       'dt': 5, 'deuteronomio': 5, 'jos': 6, 'josue': 6, 'jue': 7, 'jueces': 7, 'rt': 8, 'rut': 8,
       '1 sm': 9, '1sm': 9, '2 sm': 10, '2sm': 10, '1 r': 11, '1r': 11, '2 r': 12, '2r': 12, 
       '1 cr': 13, '1cr': 13, '1 cronicas': 13, '2 cr': 14, '2cr': 14, '2 cronicas': 14, 
-      'esd': 15, 'esdras': 16, 'neh': 16, 'nehemias': 16, 'est': 17, 'ester': 17, 'job': 18, 
+      'esd': 15, 'esdras': 15, 'neh': 16, 'nehemias': 16, 'est': 17, 'ester': 17, 'job': 18, 
       'sal': 19, 'salmos': 19, 'pr': 20, 'proverbios': 20, 'ec': 21, 'eclesiastes': 21, 
       'cnt': 22, 'cantares': 22, 'is': 23, 'isaias': 23, 'jr': 24, 'jeremias': 24, 'lam': 25, 
       'lamentaciones': 25, 'ez': 26, 'ezequiel': 26, 'dn': 27, 'daniel': 27, 'os': 28, 'oseas': 28, 
@@ -402,10 +403,9 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
     }
 
     for (var match in matches) {
-      final String nombreLibroRaw = match.group(1)!.trim();
-      
+      final String nombreLibroRaw = match.group(1)!.trim();      
       // 🚀 CLAVE DE LA OPTIMIZACIÓN: Sanitizamos el nombre capturado eliminando tildes y puntos
-      final String nombreLibroSanitizado = removerAcentos(nombreLibroRaw.toLowerCase());
+      final String nombreLibroSanitizado = removerAcentos(nombreLibroRaw);
       
       int libroId = 0;
 
