@@ -1,7 +1,7 @@
 // Tests unitarios del catálogo bíblico (lógica pura, sin Supabase ni SQLite).
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mi_app_biblica/database/libros_catalogo.dart';
+import 'package:mi_app_biblica/domain/libros_catalogo.dart';
 
 void main() {
   group('nombresLibrosCanonicos', () {

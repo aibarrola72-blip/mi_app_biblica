@@ -1,6 +1,6 @@
 // lib/database/auth_service.dart
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -39,7 +39,7 @@ class AuthService {
         final idToken = googleAuth.idToken;
 
         if (accessToken == null || idToken == null) {
-          print('🔴 Error: Los tokens de Google retornaron nulos en el hardware del dispositivo.');
+          debugPrint('🔴 Error: Los tokens de Google retornaron nulos en el hardware del dispositivo.');
           return false;
         }
 
@@ -53,7 +53,7 @@ class AuthService {
         return response.user != null;
       }
     } catch (e) {
-      print('Fallo crítico en el inicio de sesión con Google: $e');
+      debugPrint('Fallo crítico en el inicio de sesión con Google: $e');
       return false;
     }
   }

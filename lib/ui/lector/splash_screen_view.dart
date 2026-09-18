@@ -1,11 +1,11 @@
-// lib/modules/home/splash_screen_view.dart
+// lib/modules/home/package:mi_app_biblica/ui/lector/splash_screen_view.dart
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import '../../database/biblia_db_helper.dart';
-import '../../database/auth_service.dart'; // Importa el nuevo servicio
-import 'controlador_navegacion.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
+import 'package:mi_app_biblica/data/auth_service.dart'; // Importa el nuevo servicio
+import 'package:mi_app_biblica/ui/lector/controlador_navegacion.dart';
 
 class SplashScreenView extends StatefulWidget {
   const SplashScreenView({super.key});
@@ -87,7 +87,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
 
     }
     } catch (e) {
-      print("Aviso de bypass de seguridad: $e");
+      debugPrint("Aviso de bypass de seguridad: $e");
       if (mounted) {
         Navigator.pushReplacement(
           context,

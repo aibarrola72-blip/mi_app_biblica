@@ -1,4 +1,4 @@
-// lib/database/libros_catalogo.dart
+// lib/database/package:mi_app_biblica/domain/libros_catalogo.dart
 //
 // Lógica pura del catálogo de libros bíblicos (sin dependencias de Supabase o SQLite)
 // para poder probarse de forma aislada con tests unitarios.

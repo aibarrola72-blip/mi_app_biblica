@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../database/biblia_db_helper.dart';
-// import '../bosquejos/vista_editor.dart';
-import 'package:mi_app_biblica/database/pasaje_biblico_model.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
+// import 'package:mi_app_biblica/ui/bosquejos/vista_editor.dart';
+import 'package:mi_app_biblica/domain/pasaje_biblico_model.dart';
 
 
 class VistaLectorBiblia extends StatefulWidget {

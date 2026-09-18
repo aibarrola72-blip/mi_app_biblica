@@ -2,19 +2,19 @@ import 'dart:async'; // Requerido para el Timer (Debouncer)
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
-import 'package:mi_app_biblica/database/biblia_db_helper.dart';
-import 'package:mi_app_biblica/modules/lector/vista_lector.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
+import 'package:mi_app_biblica/ui/lector/vista_lector.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:mi_app_biblica/database/pasaje_biblico_model.dart';
+import 'package:mi_app_biblica/domain/pasaje_biblico_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:mi_app_biblica/modules/lector/panel_busqueda_global.dart';
-import 'package:mi_app_biblica/modules/lector/visor_biblia_libro.dart';
-import '../../database/ajustes_config.dart';
-import '../lector/panel_ajustes_view.dart';
-import '../lector/repasador_resaltados_view.dart';
-import 'package:mi_app_biblica/database/canal_eventos.dart';
+import 'package:mi_app_biblica/ui/lector/panel_busqueda_global.dart';
+import 'package:mi_app_biblica/ui/lector/visor_biblia_libro.dart';
+import 'package:mi_app_biblica/data/ajustes_config.dart';
+import 'package:mi_app_biblica/ui/lector/panel_ajustes_view.dart';
+import 'package:mi_app_biblica/ui/lector/repasador_resaltados_view.dart';
+import 'package:mi_app_biblica/core/canal_eventos.dart';
 import 'package:speech_to_text/speech_to_text.dart' as speech_to_text;
 
 class VistaEditorBosquejo extends StatefulWidget {
@@ -194,7 +194,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
             setState(() => _estaGrabandoPorVoz = false);
           }
         },
-        onError: (errorNotification) => print('Error dictado: $errorNotification'),
+        onError: (errorNotification) => debugPrint('Error dictado: $errorNotification'),
       );
       
       // Cambiamos el estado asumiendo disponibilidad del plugin nativo
@@ -204,7 +204,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
         });
       }
     } catch (e) {
-      print('Excepción al inicializar micrófono: $e');
+      debugPrint('Excepción al inicializar micrófono: $e');
       if (mounted) {
         setState(() {
           _discursoInicializado = false;
@@ -247,7 +247,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       // 🚀 SOLUCIÓN DEFINITIVA: Removemos 'await' de la llamada a .listen()
       // Esto elimina de raíz la alerta de expresión de tipo 'void' en cualquier entorno de Flutter.
       _speechToText.listen(
-        localeId: 'es_ES', 
+        listenOptions: speech_to_text.SpeechListenOptions(localeId: 'es_ES'),
         onResult: (result) {
           if (mounted) {
             setState(() {
@@ -321,7 +321,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
         }
       }
     } catch (e) {
-      print('Aviso en parseo de inyección forzada de cita: $e');
+      debugPrint('Aviso en parseo de inyección forzada de cita: $e');
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -486,15 +486,13 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
           .single()
           .timeout(const Duration(seconds: 4));
 
-      if (_idSermonActual == null && response != null) {
-        _idSermonActual = (response['id'] as num).toInt();
-      }
+      _idSermonActual ??= (response['id'] as num).toInt();
 
       // Refrescamos el listado del historial en segundo plano
       _cargarHistorial(); 
 
       // Imprime en la consola del dispositivo
-      print('💾 ¡Sermón respaldado con éxito! Fila única ID: $_idSermonActual');
+      debugPrint('💾 ¡Sermón respaldado con éxito! Fila única ID: $_idSermonActual');
 
       // 🚀 NOTIFICACIÓN VISUAL EN EL DISPOSITIVO (Solo si el pastor presionó el botón manualmente)
       if (esGuardadoManual && mounted) {
@@ -508,7 +506,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
       }
 
     } catch (errorDeRed) {
-      print('Aviso en guardado híbrido: $errorDeRed');
+      debugPrint('Aviso en guardado híbrido: $errorDeRed');
       // Tu lógica de contingencia local de SharedPreferences...
     } finally {
       // 🔓 Liberamos el escudo para permitir la siguiente actualización del debouncer
@@ -1044,8 +1042,13 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
         // Limpiamos el título para quitar la etiqueta de emergencia de la interfaz
         String tituloReal = sermon['titulo'].toString().replaceAll(' (Sin Sincronizar)', '');
 
+        // Sin sesión activa el RLS rechazaría el insert: conservamos el borrador local
+        final String? usuarioUid = supabaseClient.auth.currentUser?.id;
+        if (usuarioUid == null) continue;
+
         // Subimos el registro a tu Supabase local o en la nube
         await supabaseClient.from('bosquejos').insert({
+          'usuario_id': usuarioUid,
           'titulo': tituloReal,
           'contenido_json': sermon['contenido_json'],
         });

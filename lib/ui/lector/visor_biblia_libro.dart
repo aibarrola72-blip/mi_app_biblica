@@ -3,10 +3,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../database/biblia_db_helper.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import '../../database/ajustes_config.dart';
-import '../../database/canal_eventos.dart'; 
+import 'package:mi_app_biblica/data/ajustes_config.dart';
+import 'package:mi_app_biblica/core/canal_eventos.dart'; 
 import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart'; 
 
@@ -23,7 +23,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
   String _versionSeleccionada = 'RV1960';
   int _libroSeleccionado = 1; 
   int _capituloSeleccionado = 1;
-   List<int> _versiculosSeleccionados = [];
+   final List<int> _versiculosSeleccionados = [];
   
   List<Map<String, dynamic>> _versiculos = [];
   bool _cargando = true;
@@ -64,7 +64,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       await prefs.setInt('ultimo_libro_leido', _libroSeleccionado);
       await prefs.setInt('ultimo_capitulo_leido', _capituloSeleccionado);
     } catch (e) {
-      print('Aviso de guardado de progreso: $e');
+      debugPrint('Aviso de guardado de progreso: $e');
     }
   }
 
@@ -217,7 +217,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
           }
         }
       } catch (e) {
-        print('Error en lectura de archivos JSON físicos: $e');
+        debugPrint('Error en lectura de archivos JSON físicos: $e');
       }
     }
 
@@ -251,7 +251,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         );
       }
     } catch (e) {
-      print('Aviso en el registro automático de actividad: $e');
+      debugPrint('Aviso en el registro automático de actividad: $e');
     }
   }
 
@@ -707,7 +707,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                               ),
                             );
                           }
-                        ).toList(),
+                        ),
                   
                         // Botón rápido para borrar el sombreado del lote (Envía un 0 al motor de persistencia)
                         IconButton(padding: EdgeInsets.zero,constraints: const BoxConstraints(),
@@ -1068,7 +1068,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('biblioteca_resaltados', jsonEncode(_resaltadosLocales));
     } catch (e) {
-      print('Aviso al persistir la paleta de sombreados en disco: $e');
+      debugPrint('Aviso al persistir la paleta de sombreados en disco: $e');
     }
   }
 

@@ -1,27 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
-import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
+import 'package:mi_app_biblica/core/config.dart';
+import 'package:mi_app_biblica/ui/bosquejos/vista_editor.dart';
+import 'package:mi_app_biblica/ui/lector/splash_screen_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'modules/bosquejos/vista_editor.dart';
 
 // Las credenciales pueden sobrescribirse en compilación con:
 // flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-const String _supabaseUrl = String.fromEnvironment(
-  'SUPABASE_URL',
-  defaultValue: 'https://qvbojzmtdbrrahtewrrr.supabase.co',
-);
-const String _supabaseAnonKey = String.fromEnvironment(
-  'SUPABASE_ANON_KEY',
-  defaultValue: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
-);
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
-    url: _supabaseUrl,
-    publishableKey: _supabaseAnonKey,
+    url: supabaseUrl,
+    publishableKey: supabaseAnonKey,
   );
 
   runApp(const MiAppBiblica());

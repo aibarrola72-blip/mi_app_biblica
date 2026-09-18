@@ -7,7 +7,7 @@ import 'package:sqflite/sqflite.dart' as sql; // Importación limpia multiplataf
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'libros_catalogo.dart';
+import 'package:mi_app_biblica/domain/libros_catalogo.dart';
 
 class BibliaDatabaseHelper {
   static final BibliaDatabaseHelper _instance = BibliaDatabaseHelper._internal();
@@ -78,7 +78,7 @@ class BibliaDatabaseHelper {
       );
       return _dbMobi;
     } catch (e) {
-      print('Error abriendo SQLite local en el dispositivo móvil: $e');
+      debugPrint('Error abriendo SQLite local en el dispositivo móvil: $e');
       return null;
     }
   }
@@ -158,7 +158,7 @@ class BibliaDatabaseHelper {
         return resultadoNube;
       }
     } catch (e) {
-      print('Servidor inalcanzable. Buscando persistencia local SQLite... $e');
+      debugPrint('Servidor inalcanzable. Buscando persistencia local SQLite... $e');
     }
 
     // 3. CONTINGENCIA JSON: parseo pesado en un isolate para nunca congelar la interfaz
@@ -178,7 +178,7 @@ class BibliaDatabaseHelper {
         return textosOfflineJson;
       }
     } catch (e) {
-      print('Fallo crítico al mapear el nodo items del archivo bíblico JSON: $e');
+      debugPrint('Fallo crítico al mapear el nodo items del archivo bíblico JSON: $e');
     }
 
     return [];
@@ -231,7 +231,7 @@ class BibliaDatabaseHelper {
         await prefs.setBool(prefClave, true);
       }
     } catch (e) {
-      print('Error al preparar la biblioteca offline: $e');
+      debugPrint('Error al preparar la biblioteca offline: $e');
     } finally {
       _progresoOffline.value = '';
       _poblacionEnCurso = false;
@@ -283,7 +283,7 @@ class BibliaDatabaseHelper {
         return resultadoNube;
       }
     } catch (e) {
-      print('Docker desconectado. Cargando referencias desde SQLite local... $e');
+      debugPrint('Docker desconectado. Cargando referencias desde SQLite local... $e');
     }
 
     if (!kIsWeb) {
@@ -446,7 +446,7 @@ class BibliaDatabaseHelper {
       final resultadoNube = List<Map<String, dynamic>>.from(response);
       if (resultadoNube.isNotEmpty) return resultadoNube;
     } catch (e) {
-      print('Servidor Supabase Cloud offline o lento para comparativa. Activando escaneo local: $e');
+      debugPrint('Servidor Supabase Cloud offline o lento para comparativa. Activando escaneo local: $e');
     }
 
     // 2. CONTINGENCIA LOCAL EXTENDIDA: Si está desconectado o en el celular físico,
@@ -499,10 +499,10 @@ class BibliaDatabaseHelper {
           loteBatch.delete('cache_referencias');
           loteBatch.delete('cache_busquedas');
           await loteBatch.commit(noResult: true);
-          print('Almacenamiento SQLite purgado con éxito.');
+          debugPrint('Almacenamiento SQLite purgado con éxito.');
         }
       } catch (e) {
-        print('Error al vaciar tablas locales de SQLite: $e');
+        debugPrint('Error al vaciar tablas locales de SQLite: $e');
       }
     }
   }
@@ -553,7 +553,7 @@ class BibliaDatabaseHelper {
         return locales;
       }
     } catch (e) { 
-      print('Error al obtener historial unificado: $e');
+      debugPrint('Error al obtener historial unificado: $e');
       return []; 
     }
   }
@@ -573,7 +573,7 @@ class BibliaDatabaseHelper {
       });
       return true;
     } catch (e) {
-      print('Error al guardar bosquejo multiusuario: $e');
+      debugPrint('Error al guardar bosquejo multiusuario: $e');
       return false;
     }
   }
@@ -590,7 +590,7 @@ class BibliaDatabaseHelper {
       final String? usuarioUid = _client.auth.currentUser?.id;
       
       if (usuarioUid == null) {
-        print('🔴 Intento de guardado devocional bloqueado: No hay una sesión de usuario activa.');
+        debugPrint('🔴 Intento de guardado devocional bloqueado: No hay una sesión de usuario activa.');
         return false;
       }
 
@@ -609,7 +609,7 @@ class BibliaDatabaseHelper {
       // 🚀 3. EL FRENO DE MANO: Si es solo una visita o lectura automática,
       // guardamos el progreso y salimos de inmediato, SIN alterar el perfil de la racha.
       if (soloRegistrarVisita) {
-        print('📊 Progreso de lectura guardado en silencio en Supabase.');
+        debugPrint('📊 Progreso de lectura guardado en silencio en Supabase.');
         return true; 
       }
 
@@ -650,7 +650,7 @@ class BibliaDatabaseHelper {
 
       return true;
     } catch (e) {
-      print('Error en cálculo de racha multiusuario: $e');
+      debugPrint('Error en cálculo de racha multiusuario: $e');
       return false;
     }
   }
@@ -668,7 +668,7 @@ class BibliaDatabaseHelper {
           .eq('usuario_id', usuarioUid); // 🚀 SEGURIDAD: Evita que un usuario borre un sermón ajeno
       return true;
     } catch (e) {
-      print('Error al eliminar bosquejo: $e');
+      debugPrint('Error al eliminar bosquejo: $e');
       return false;
     }
   }
@@ -724,7 +724,7 @@ class BibliaDatabaseHelper {
         'citas': e.value
       }).toList();
     } catch (e) {
-      print('Aviso en el cálculo del Top 3 de libros base: $e');
+      debugPrint('Aviso en el cálculo del Top 3 de libros base: $e');
       return [];
     }
   }
@@ -740,7 +740,7 @@ class BibliaDatabaseHelper {
             .from('resaltados_biblia')
             .delete()
             .match({'user_id': user.id, 'llave_resaltado': llave});
-            print('🗑️ Resaltado eliminado de la nube: $llave');
+            debugPrint('🗑️ Resaltado eliminado de la nube: $llave');
       } else {
         // Si seleccionó color, lo guardamos o actualizamos (Upsert)
         await _client.from('resaltados_biblia').upsert({
@@ -751,10 +751,10 @@ class BibliaDatabaseHelper {
         },
         onConflict: 'user_id,llave_resaltado',
         );
-        print('✨ Resaltado sincronizado exitosamente en Supabase: $llave (Color: $colorHex)');
+        debugPrint('✨ Resaltado sincronizado exitosamente en Supabase: $llave (Color: $colorHex)');
       }
     } catch (e) {
-      print('Aviso en sincronización de sombreado a Supabase: $e');
+      debugPrint('Aviso en sincronización de sombreado a Supabase: $e');
     }
   }
 
@@ -811,7 +811,7 @@ class BibliaDatabaseHelper {
       mapaLocal.forEach((k, v) => mapaDescargado[k] = v is num ? v.toInt() : 0);
       return mapaDescargado;
     } catch (e) {
-      print('Error al descargar sombreados de Supabase: $e');
+      debugPrint('Error al descargar sombreados de Supabase: $e');
       return {};
     }
   }
@@ -831,7 +831,7 @@ class BibliaDatabaseHelper {
 
       return datos?['racha_dias'] ?? 0;
     } catch (e) {
-      print('Aviso al obtener racha de Supabase: $e');
+      debugPrint('Aviso al obtener racha de Supabase: $e');
       return 0; // En caso de error o modo local, mantiene el contador en 0
     }
   }
@@ -850,7 +850,7 @@ class BibliaDatabaseHelper {
 
       return datos?['minutos_altar'] ?? 0;
     } catch (e) {
-      print('Aviso al obtener tiempo de altar de Supabase: $e');
+      debugPrint('Aviso al obtener tiempo de altar de Supabase: $e');
       return 0;
     }
   }
@@ -887,7 +887,7 @@ class BibliaDatabaseHelper {
         'nt_citas_count': datosCitas?['nt_citas_count'] ?? 0,
       };
     } catch (e) {
-      print('Aviso al recuperar métricas combinadas de Supabase: $e');
+      debugPrint('Aviso al recuperar métricas combinadas de Supabase: $e');
       return {};
     }
   }
@@ -905,7 +905,7 @@ class BibliaDatabaseHelper {
       final String mensajeCompleto = '"$textoVersiculo" \n— $cita';
 
       if (ipComputadora.isEmpty) {
-        print('❌ No se indicó la IP de la computadora.');
+        debugPrint('❌ No se indicó la IP de la computadora.');
         return false;
       }
       // 🎬 CONFIGURACIÓN A: SI LA IGLESIA UTILIZA OPENLP
@@ -916,7 +916,7 @@ class BibliaDatabaseHelper {
           url,
           body: {'text': mensajeCompleto},
         ).timeout(const Duration(seconds: 3));
-        print(
+        debugPrint(
           'OpenLP respondió: '
           '${response.statusCode} - ${response.body}',
         );
@@ -940,16 +940,16 @@ class BibliaDatabaseHelper {
               'cita': cita,
               'versiculo': textoVersiculo,}),
         ).timeout(const Duration(seconds: 3));
-        print(
+        debugPrint(
           'Quelea respondió: '
           '${response.statusCode} - ${response.body}',
         );
         return response.statusCode >= 200 && response.statusCode < 300;
       } 
-      print('❌ Plataforma no reconocida: $plataforma');
+      debugPrint('❌ Plataforma no reconocida: $plataforma');
       return false;     
     } catch (e) {
-      print('❌ Error al proyectar pasaje: $e');
+      debugPrint('❌ Error al proyectar pasaje: $e');
     return false;
     }
   }
@@ -969,7 +969,7 @@ class BibliaDatabaseHelper {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('Error al obtener la bitácora de lectura en el Helper: $e');
+      debugPrint('Error al obtener la bitácora de lectura en el Helper: $e');
       return [];
     }
   }

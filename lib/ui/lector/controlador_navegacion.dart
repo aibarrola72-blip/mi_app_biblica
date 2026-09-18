@@ -1,14 +1,13 @@
-// lib/modules/home/controlador_navegacion.dart
+// lib/modules/home/package:mi_app_biblica/ui/lector/controlador_navegacion.dart
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../database/ajustes_config.dart';
-import '../lector/pantalla_inicio_view.dart';
-import '../bosquejos/vista_editor.dart';
-import '../lector/visor_biblia_libro.dart';
-import '../lector/panel_busqueda_global.dart';
-import '../../database/pasaje_biblico_model.dart';
+import 'package:mi_app_biblica/data/ajustes_config.dart';
+import 'package:mi_app_biblica/ui/lector/pantalla_inicio_view.dart';
+import 'package:mi_app_biblica/ui/bosquejos/vista_editor.dart';
+import 'package:mi_app_biblica/ui/lector/visor_biblia_libro.dart';
+import 'package:mi_app_biblica/ui/lector/panel_busqueda_global.dart';
 
 class ControladorNavegacion extends StatefulWidget {
   const ControladorNavegacion({super.key});
@@ -21,9 +20,6 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
   int _indiceSeleccionado = 0;
   final AjustesConfig _ajustesGlobales = AjustesConfig();
   final _supabase = Supabase.instance.client;
-
-  // Controladores de estado persistentes compartidos en memoria
-  PasajeBiblico? _pasajeMapeadoLector;
 
   // 🚀 ESCUCHADOR DE ENLACE DE SEGURIDAD
   late final StreamSubscription<AuthState> _subAutenticacion;
@@ -42,7 +38,7 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
     _subAutenticacion = _supabase.auth.onAuthStateChange.listen((data) {
       final Session? sesion = data.session;
       if (sesion != null && _indiceSeleccionado == 0) {
-        print("🔑 Sesión reactivada con éxito en el hardware: ${sesion.user.email}");
+        debugPrint("🔑 Sesión reactivada con éxito en el hardware: ${sesion.user.email}");
       }
     });
 

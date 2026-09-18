@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../database/ajustes_config.dart';
-import '../../database/biblia_db_helper.dart';
-import '../../database/auth_service.dart';
-import 'splash_screen_view.dart';
+import 'package:mi_app_biblica/data/ajustes_config.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
+import 'package:mi_app_biblica/data/auth_service.dart';
+import 'package:mi_app_biblica/ui/lector/splash_screen_view.dart';
 
 class PantallaInicioView extends StatefulWidget {
   final Function(int) onCambiarPestana;
@@ -281,7 +281,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       });
 
     } catch (e) { 
-      print("Error cargando dashboard unificado: $e"); 
+      debugPrint("Error cargando dashboard unificado: $e"); 
     }
 
     if (mounted) setState(() => _cargandoDashboard = false);
@@ -309,9 +309,8 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
             tooltip: 'Cerrar sesión',
             onPressed: () async {
               await _authService.cerrarSesion();
-              if (mounted) {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreenView()));
-              }
+              if (!context.mounted) return;
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreenView()));
             },
           ),
           const SizedBox(width: 8),

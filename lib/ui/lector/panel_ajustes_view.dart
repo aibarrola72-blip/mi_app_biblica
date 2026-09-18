@@ -1,8 +1,8 @@
 // lib/modules/lector/panel_ajustes_view.dart
 
 import 'package:flutter/material.dart';
-import '../../database/ajustes_config.dart';
-import '../../database/biblia_db_helper.dart';
+import 'package:mi_app_biblica/data/ajustes_config.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
 
 class PanelAjustesView extends StatefulWidget {
   final AjustesConfig ajustes;
@@ -104,7 +104,7 @@ class _PanelAjustesViewState extends State<PanelAjustesView> {
                         Expanded(
                           flex: 4,
                           child: DropdownButtonFormField<String>(
-                            value: widget.ajustes.softwareProyeccion,
+                            initialValue: widget.ajustes.softwareProyeccion,
                             decoration: InputDecoration(
                               labelText: 'Software',
                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

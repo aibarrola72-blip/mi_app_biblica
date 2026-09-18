@@ -2,9 +2,9 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../database/biblia_db_helper.dart';
-import '../../database/pasaje_biblico_model.dart';
-import '../../database/canal_eventos.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
+import 'package:mi_app_biblica/domain/pasaje_biblico_model.dart';
+import 'package:mi_app_biblica/core/canal_eventos.dart';
 
 class PanelBusquedaGlobal extends StatefulWidget {
   final ValueChanged<PasajeBiblico> onPasajeSeleccionado;

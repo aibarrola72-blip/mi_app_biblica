@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../database/biblia_db_helper.dart';
+import 'package:mi_app_biblica/data/biblia_db_helper.dart';
 
 class RepasadorResaltadosView extends StatefulWidget {
   const RepasadorResaltadosView({super.key});
