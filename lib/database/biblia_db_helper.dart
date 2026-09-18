@@ -681,17 +681,23 @@ class BibliaDatabaseHelper {
         final int rachaActual = perfil['racha_actual'] ?? 0;
         final String? ultimaFechaRaw = perfil['ultima_fecha_lectura'];
 
-        if (ultimaFechaRaw != null) {
-          final DateTime fechaUltimaLectura = DateTime.parse("$ultimaFechaRaw 00:00:00");
-          final DateTime fechaHoyCorte = DateTime.parse("$fechaHoyPlana 00:00:00");
-          final int diferenciaDiasCalendario = fechaHoyCorte.difference(fechaUltimaLectura).inDays;
+        if (ultimaFechaRaw != null && ultimaFechaRaw.isNotEmpty) {
+          // Solo intentamos analizar si trae al menos el formato YYYY-MM-DD (10 caracteres)
+          final DateTime? fechaUltimaLectura = ultimaFechaRaw.length >= 10
+              ? DateTime.tryParse(ultimaFechaRaw.substring(0, 10))
+              : null;
 
-          if (diferenciaDiasCalendario == 1) {
-            nuevaRacha = rachaActual + 1;
-          } else if (diferenciaDiasCalendario == 0) {
-            nuevaRacha = rachaActual;
-          } else {
-            nuevaRacha = 1;
+          if (fechaUltimaLectura != null) {
+            final DateTime fechaHoyCorte = DateTime.parse("$fechaHoyPlana 00:00:00");
+            final int diferenciaDiasCalendario = fechaHoyCorte.difference(fechaUltimaLectura).inDays;
+
+            if (diferenciaDiasCalendario == 1) {
+              nuevaRacha = rachaActual + 1;
+            } else if (diferenciaDiasCalendario == 0) {
+              nuevaRacha = rachaActual;
+            } else {
+              nuevaRacha = 1;
+            }
           }
         }
       }
@@ -794,6 +800,7 @@ class BibliaDatabaseHelper {
             .from('resaltados_biblia')
             .delete()
             .match({'user_id': user.id, 'llave_resaltado': llave});
+            print('🗑️ Resaltado eliminado de la nube: $llave');
       } else {
         // Si seleccionó color, lo guardamos o actualizamos (Upsert)
         await _client.from('resaltados_biblia').upsert({
@@ -801,7 +808,10 @@ class BibliaDatabaseHelper {
           'llave_resaltado': llave,
           'color_hex': colorHex,
           'updated_at': DateTime.now().toIso8601String(),
-        });
+        },
+        onConflict: 'user_id,llave_resaltado',
+        );
+        print('✨ Resaltado sincronizado exitosamente en Supabase: $llave (Color: $colorHex)');
       }
     } catch (e) {
       print('Aviso en sincronización de sombreado a Supabase: $e');
@@ -821,7 +831,7 @@ class BibliaDatabaseHelper {
 
       final Map<String, int> mapaDescargado = {};
       for (var item in respuesta) {
-        mapaDescargado[item['llave_resaltado']] = item['color_hex'];
+        mapaDescargado[item['llave_resaltado'].toString()] = item['color_hex'];
       }
       return mapaDescargado;
     } catch (e) {
@@ -965,6 +975,26 @@ class BibliaDatabaseHelper {
     } catch (e) {
       print('❌ Error al proyectar pasaje: $e');
     return false;
+    }
+  }
+
+    /// 📜 BITÁCORA CRONOLÓGICA: Extrae los capítulos leídos por el pastor para el modal del reloj
+  Future<List<Map<String, dynamic>>> obtenerHistorialLectura() async {
+    try {
+      final String? usuarioUid = _client.auth.currentUser?.id;
+      if (usuarioUid == null) return [];
+
+      // Consulta directa a la tabla de bitácora ordenando de la más reciente a la más antigua
+      final response = await _client
+          .from('progreso_lectura')
+          .select('libro_id, capitulo, fecha_lectura')
+          .eq('usuario_id', usuarioUid)
+          .order('fecha_lectura', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('Error al obtener la bitácora de lectura en el Helper: $e');
+      return [];
     }
   }
 }

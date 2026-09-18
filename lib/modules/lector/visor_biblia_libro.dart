@@ -359,6 +359,12 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                 onPressed: _mostrarBuscadorGlobalFlotante, // Llamará a la interfaz que crearemos abajo
               ),
 
+              IconButton(
+                    icon: const Icon(Icons.history_rounded), // Ícono de reloj con sentido de retorno
+                    tooltip: 'Ver historial de lecturas anteriores',
+                    onPressed: _mostrarHistorialLecturaModal, // Despliega el panel de registros
+                  ),
+
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
             child: Container(
@@ -412,103 +418,11 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         ],
       ),
       
-      // Botones flotantes inferiores dinámicos (Aparecen automáticamente al seleccionar un rango)
-      bottomNavigationBar: _versiculosSeleccionados.isNotEmpty
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              decoration: BoxDecoration(
-                color: colorAppBarFondo,
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],
-              ),
-              child: SafeArea(
-                child: Wrap(
-                  spacing: 10.0,
-                  runSpacing: 10.0,
-                  alignment: WrapAlignment.spaceEvenly,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    // 1. Mostrar dinámicamente la cita exacta seleccionada
-                    Builder(
-                      builder: (context) {
-                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
-                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
-                        return Text(
-                          '$nombreLibro $_capituloSeleccionado:$versiculosFormateados',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 14),
-                        );
-                      },
-                    ),
-                    
-                    // 2. Botón Compartir (Extrae el bloque continuo de texto)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal, 
-                        foregroundColor: Colors.white, 
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.share, size: 18),
-                      label: const Text('Compartir', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                        // Determinamos el inicio y fin correctos matemáticamente
-                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
-                        StringBuffer textoCompletoBloque = StringBuffer();                  
-                        // Recorremos el rango continuo entre el menor y el mayor seleccionado
-                        for (int numV in ordenados) {
-                          final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV, orElse: () => {});
-                          if (vData.isNotEmpty) {
-                            textoCompletoBloque.write('[$numV] ${vData['texto']}\n');
-                          }
-                        }
-
-                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
-                        final String message = '$textoCompletoBloque— $nombreLibro $_capituloSeleccionado:$versiculosFormateados ($_versionSeleccionada)';
-                                                
-                        Share.share(message);
-                        setState(() {  _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
-                      },
-                    ),
-                    
-                    // 3. Botón Insertar (Envía el string exacto al Canal de Eventos del Editor)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A73E8), 
-                        foregroundColor: Colors.white, 
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.send_and_archive, size: 18),
-                      label: const Text('Insertar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);                 
-                        List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
-                        String versiculosFormateados = _formatearVersiculosCita(ordenados);
-                        final String citaRango = '$nombreLibro $_capituloSeleccionado:$versiculosFormateados';
-                                                
-                        CanalEventos().enviarCitaAlEditor(citaRango);
-                        setState(() { _versiculosSeleccionados.clear(); _modoSeleccionMultiple = false; });
-                      },
-                    ),
-                    
-                    // 4. Botón Pintar (Llama a tu paleta de colores)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green, 
-                        foregroundColor: Colors.white, 
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.color_lens, size: 18),
-                      label: const Text('Pintar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      onPressed: _mostrarPaletaColoresRango, // Asegúrate de adaptar esta función si usaba la lista vieja
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : null,
-            
+      bottomNavigationBar: null,
+        
             // 🚀 NUEVO FLOATING ACTION BUTTON: Aparece si el pastor saltó mediante un enlace 🔗
-          floatingActionButton: !_modoSeleccionMultiple && _historialNavegacionRegreso.isNotEmpty ? FloatingActionButton.extended(
+          floatingActionButton: !_modoSeleccionMultiple && _historialNavegacionRegreso.isNotEmpty 
+            ? FloatingActionButton.extended(
                   heroTag: 'btn_regresar_historial_biblia',
                   backgroundColor: Colors.blueGrey.shade800,
                   icon: const Icon(Icons.arrow_circle_left_outlined, color: Colors.white),
@@ -531,31 +445,33 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                 )
               : null,
           
-      body: Column(
+      body: Stack(
         children: [
-          _construirBarraNavegacionRapida(),
-          Expanded(
-            child: _cargando
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                    // 🚀 MEJORA DE ACOPLAMIENTO: Colchón elástico inferior para liberar el último
-                    itemCount: _versiculos.length+2,
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                       return Padding(padding: const EdgeInsets.only(top: 10.0, bottom: 24.0),
-                        child: Center(
-                          child: Column(
-                            children: [
-                              Text('CAPÍTULO $_capituloSeleccionado',style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra + 4, // Crece proporcionalmente según los ajustes
-                              fontWeight: FontWeight.bold,letterSpacing: 2.0,color: const Color(0xFF1A73E8),fontFamily: 'sans-serif',),),
-                              const SizedBox(height: 6),Container(width: 45,height: 2.5,color: Colors.blueGrey.withValues(alpha: 0.3),
-                              ),
-                            ],
+          Column(
+            children: [
+            _construirBarraNavegacionRapida(),
+            Expanded(
+              child: _cargando
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+                      // 🚀 MEJORA DE ACOPLAMIENTO: Colchón elástico inferior para liberar el último
+                      itemCount: _versiculos.length+2,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                        return Padding(padding: const EdgeInsets.only(top: 10.0, bottom: 24.0),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Text('CAPÍTULO $_capituloSeleccionado',style: TextStyle(fontSize: _ajustesGlobales.tamanoLetra + 4, // Crece proporcionalmente según los ajustes
+                                fontWeight: FontWeight.bold,letterSpacing: 2.0,color: const Color(0xFF1A73E8),fontFamily: 'sans-serif',),),
+                                const SizedBox(height: 6),Container(width: 45,height: 2.5,color: Colors.blueGrey.withValues(alpha: 0.3),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    }                     // Colchón elástico inferior
+                        );
+                      }                     // Colchón elástico inferior
                   
                     // CASO 2: ÍTEM FINAL (Transformado en botón verificador de progreso devocional)
                     if (index == _versiculos.length + 1) {
@@ -732,6 +648,157 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
+        ],
+      ),
+      
+      // 🚀 NUEVA BARRA ESTILO TOOLBAR SUPERIOR (Aparece de forma flotante e idéntica a tus controles)
+      if (_versiculosSeleccionados.isNotEmpty)
+        Positioned(left: 14.0,right: 14.0,bottom: MediaQuery.of(context).
+          padding.bottom + 45.0, // Posicionado justo arriba de la barra azul informativa
+          child: Row(mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: MediaQuery.of(context).size.width * 0.92,height: 48, // Ajuste idéntico a la altura estándar de un renglón de acciones
+                decoration: BoxDecoration(
+                  color: colorAppBarFondo,borderRadius: BorderRadius.circular(24.0), // Cápsula delgada estilizada
+                  border: Border.all(color: esOscuro ? Colors.grey.shade800 : Colors.black12,width: 1,),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black26,blurRadius: 8,spreadRadius: 1,offset: Offset(0, 3),)
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24.0),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [// 1. Indicador textual de citas seleccionadas
+                        Builder(builder: (context) {
+                          List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                          String versiculosFormateados = _formatearVersiculosCita(ordenados);
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            child: Text('$nombreLibro $_capituloSeleccionado:$versiculosFormateados',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colorAppBarTexto, fontSize: 13),
+                            ),
+                          );
+                        },),// Divisor vertical idéntico a tus estándares estéticos
+                        VerticalDivider(color: esOscuro ? Colors.grey.shade800 : Colors.black12, width: 16, thickness: 1, indent: 10, endIndent: 10),
+                        // 2. PALETA DIRECTA DE ACCIÓN RÁPIDA (Usando tu widget _circuloPaleta original)
+                        ...[Colors.yellow.value, Colors.green.value, Colors.blue.value, Colors.pink.value].map((int colorValue) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 3.0),
+                              child: _circuloPaleta(
+                                colorValue, (int colorElegido) async {
+                                  final List<int> loteAProcesar = List.from(_versiculosSeleccionados);
+                                  for (int numV in loteAProcesar) {
+                                    _alternarResaltadoVersiculoEnLote(numV, colorElegido);
+                                    // Estructuramos la llave exacta de forma idéntica a tu persistencia
+                                    final String llaveVersiculo = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numV';
+                                    await _dbHelper.sincronizarResaltadoAnube(llaveVersiculo, colorElegido);
+                                  }
+                                  await _guardarResaltadosEnDisco();
+                                  setState(() {
+                                    _versiculosSeleccionados.clear();_modoSeleccionMultiple = false;
+                                    }
+                                  );
+                                }
+                              ),
+                            );
+                          }
+                        ).toList(),
+                  
+                        // Botón rápido para borrar el sombreado del lote (Envía un 0 al motor de persistencia)
+                        IconButton(padding: EdgeInsets.zero,constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.layers_clear, color: Colors.red, size: 20),
+                          tooltip: 'Borrar sombreados',
+                          onPressed: () async {
+                            final List<int> loteALimpiar = List.from(_versiculosSeleccionados);
+                            for (int numV in loteALimpiar) {_alternarResaltadoVersiculoEnLote(numV, 0);
+                              final String llaveVersiculo = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numV';
+                              await _dbHelper.sincronizarResaltadoAnube(llaveVersiculo, 0);
+                            }
+                            await _guardarResaltadosEnDisco();
+                            setState(() {_versiculosSeleccionados.clear();_modoSeleccionMultiple = false;
+                            });
+                          },
+                        ),
+                        VerticalDivider(color: esOscuro ? Colors.grey.shade800 : Colors.black12, width: 16, thickness: 1, indent: 10, endIndent: 10),
+                
+                        // 3. NUEVO BOTÓN: Comparar traducciones en lote
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.compare_arrows_rounded, color: esOscuro ? Colors.purple.shade300 : Colors.purple.shade700, size: 22),
+                          tooltip: 'Comparar versiones',onPressed: () {
+                            List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                            if (ordenados.isNotEmpty) {_mostrarDialogoComparativaVersiones(ordenados.first);}
+                          },
+                        ),
+                        const SizedBox(width: 14),
+                    
+                        // 4. BOTÓN: Compartir bloque de texto con firma de la Aplicación
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.share, color: esOscuro ? Colors.teal.shade300 : Colors.teal.shade700, size: 20),
+                          tooltip: 'Compartir pasajes',
+                          onPressed: () {
+                            List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                            StringBuffer textoCompletoBloque = StringBuffer();
+                            
+                            for (int numV in ordenados) {
+                              final vData = _versiculos.firstWhere((element) => element['versiculo'] == numV, orElse: () => {});
+                              if (vData.isNotEmpty) {
+                                textoCompletoBloque.write('[$numV] ${vData['texto']}\n');
+                              }
+                            }
+                            
+                            String versiculosFormateados = _formatearVersiculosCita(ordenados);
+                            
+                            // ⚙️ CONFIGURACIÓN FUTURA DE TIENDAS:
+                            // En cuanto subas la app, cambia este String vacío por tu package name (Ej: 'com.misitioweb.bibliapredicador')
+                            const String packageStoreName = ''; 
+
+                            // Generamos la firma de marca con estilos enriquecidos para WhatsApp (* = Negrita, _ = Cursiva)
+                            StringBuffer firmaEstructurada = StringBuffer();
+                            firmaEstructurada.write('\n📖 Compartido desde la app *_Biblia del Predicador_*');
+                            firmaEstructurada.write('\n✨ _Herramientas avanzadas para el ministerio pastoral_');
+                            
+                            // Si la variable del paquete tiene texto, el enlace se añade automáticamente al mensaje
+                            if (packageStoreName.isNotEmpty) {
+                              firmaEstructurada.write('\n🔗 Descárgala en Google Play: https://google.com');
+                            }
+
+                            // Unimos los versículos compactos, la cita formal y la firma dinámica
+                            final String message = '$textoCompletoBloque— $nombreLibro $_capituloSeleccionado:$versiculosFormateados ($_versionSeleccionada)\n$firmaEstructurada';
+                            
+                            Share.share(message); 
+                            
+                            setState(() {
+                              _versiculosSeleccionados.clear();
+                              _modoSeleccionMultiple = false;
+                            });
+                          },
+                        ),
+
+                        const SizedBox(width: 14),
+              
+                        // 5. BOTÓN: Enviar al Editor de sermones
+                        IconButton(padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),icon: const Icon(Icons.send_and_archive, color: Color(0xFF1A73E8), size: 20),
+                          tooltip: 'Insertar en el sermón',
+                          onPressed: () {List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
+                            String versiculosFormateados = _formatearVersiculosCita(ordenados);
+                            final String citaRango = '$nombreLibro $_capituloSeleccionado:$versiculosFormateados';
+                            CanalEventos().enviarCitaAlEditor(citaRango);
+                            setState(() {_versiculosSeleccionados.clear();_modoSeleccionMultiple = false;});
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                    ),),),),],),),
         ],
       ),
     );
@@ -963,198 +1030,6 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     return fragmentos;
   }
 
-  // 🎨 MODO UNIFICADO: Sombrea desde un solo versículo hasta un rango completo
-  void _mostrarPaletaColoresRango() {
-    if (_versiculosSeleccionados.isEmpty) return;
-    List<int> ordenados = List.from(_versiculosSeleccionados)..sort();
-    final String tituloPaleta = ordenados.length == 1
-    ? 'Sombrear versículo ${ordenados.first}:'
-    : 'Sombrear versículos (${_formatearVersiculosCita(ordenados)}):';
-
-    _mostrarPaletaBase(
-      tituloPaleta, 
-      (colorValue) {
-        // Aplicamos el color a todo el rango continuo
-        for (int verso in ordenados) {
-          _alternarResaltadoVersiculoEnLote(verso, colorValue);
-        }
-        _limpiarSeleccionYGuardar();
-        Navigator.pop(context); 
-      },
-      () {
-        // Borramos el sombreado (color 0) a todo el rango continuo
-        for (int verso in ordenados) {
-          _alternarResaltadoVersiculoEnLote(verso, 0); 
-        }
-        _limpiarSeleccionYGuardar();
-        Navigator.pop(context); 
-      },
-      // Pasamos el ID del verso individual solo si es un único versículo seleccionado
-      versiculoIndividual: ordenados.length == 1 ? ordenados.first : null, 
-    );
-  }
-
-  // Función auxiliar para limpiar la pantalla y persistir en base de datos
-  void _limpiarSeleccionYGuardar() async {
-    setState(() {
-      _versiculosSeleccionados.clear();
-      _modoSeleccionMultiple = false;
-    });
-    
-    // 1. Guarda en SharedPreferences al instante para que la UI reaccione rápido
-    await _guardarResaltadosEnDisco(); 
-
-    // 2. Dispara la sincronización en la nube para cada versículo modificado
-    final dbHelper = BibliaDatabaseHelper();
-    _resaltadosLocales.forEach((llave, color) {
-      dbHelper.sincronizarResaltadoAnube(llave, color);
-    });
-  }
-
-  // MÉTODO BASE: Eleva la paleta sobre los botones de Android de forma limpia
-  void _mostrarPaletaBase(String titulo, Function(int) onColorElegido, VoidCallback onLimpiar, {int? versiculoIndividual}) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      barrierColor: Colors.transparent, // Permite seguir tocando el texto de atrás
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewPadding.bottom + 8),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            // Ajustamos la altura si viene con el panel de referencias cruzadas activo
-            height: versiculoIndividual != null ? 210 : 125,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(titulo, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                    IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => Navigator.pop(context)),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    // 🚀 NUEVO BOTÓN: Enviar Cita al Editor de Sermones (Aparece si viene de Modo Individual)
-                    if (versiculoIndividual != null)...[
-                      IconButton(
-                        icon: const Icon(Icons.rate_review_outlined, color: Color(0xFF1A73E8), size: 28),
-                        tooltip: 'Enviar cita al sermón',
-                        onPressed: () {
-                        //   // 1. Obtenemos el nombre del libro de forma limpia
-                           final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                          
-                        //   // 2. Estructuramos el string de la cita exacta: "1 Corintios 14:3"
-                        //   // 3. Emitimos la señal de radio al editor por el Canal Global
-                           CanalEventos().enviarCitaAlEditor('$nombreLibro $_capituloSeleccionado:$versiculoIndividual');
-                          
-                        //   // 4. Cerramos el menú contextual automáticamente
-                           Navigator.pop(context);
-                         },
-                      ),
-
-                      // 🚀 NUEVO BOTÓN: Compartir Versículo Individual
-                      IconButton(
-                        icon: const Icon(Icons.share, color: Colors.teal, size: 28),
-                        tooltip: 'Compartir pasaje',
-                        onPressed: () {
-                          final String nombreLibro = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
-                          // Buscamos el texto del versículo actual en la lista local
-                          final vData = _versiculos.firstWhere((element) => element['versiculo'] == versiculoIndividual);
-                          Share.share('"${vData['texto'] ?? ''}" — $nombreLibro $_capituloSeleccionado:$versiculoIndividual ($_versionSeleccionada)');
-                          Navigator.pop(context);
-                        },
-                      ),
-
-                      // 🚀 BOTÓN DE COMPARAR TRADUCCIONES CORREGIDO
-                      IconButton(
-                        icon: const Icon(Icons.compare, color: Colors.indigo, size: 28),
-                        tooltip: 'Comparar traducciones',
-                        onPressed: () {
-                          Navigator.pop(context); // Cierra la paleta de colores                          
-                          // 🚀 SEGURO: Le pasamos la variable que la paleta recibió en su declaración
-                          _mostrarDialogoComparativaVersiones(versiculoIndividual);
-                        },
-                      ),
-                    ],                        
-                    _circuloPaleta(Colors.yellow.value, onColorElegido),
-                    _circuloPaleta(Colors.green.value, onColorElegido),
-                    _circuloPaleta(Colors.blue.value, onColorElegido),
-                    _circuloPaleta(Colors.pink.value, onColorElegido),
-                    IconButton(icon: const Icon(Icons.layers_clear, color: Colors.red), onPressed: onLimpiar)
-                  ],
-                ),
-                // 🚀 EFECTO DOMINÓ DESDE EL FUTUREBUILDER INTEGRADO PERFECTAMENTE
-                if (versiculoIndividual != null) ...[
-                  const Divider(height: 20),
-                  const Text('🔗 Pasajes Relacionados',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blueGrey)
-                  ),
-                  const SizedBox(height: 6),
-                  Expanded(
-                    child: FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _dbHelper.obtenerReferenciasCruzadas(
-                        _libroSeleccionado, 
-                        _capituloSeleccionado, 
-                        versiculoIndividual),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: SizedBox(width: 20, height: 20, 
-                            child: CircularProgressIndicator(strokeWidth: 2)
-                            )
-                            );
-                          }
-                          final referencias = snapshot.data ?? [];
-                          if (referencias.isEmpty) {
-                            return const Text('No se encontraron citas marginales.', style: TextStyle(fontSize: 12, color: 
-                            Colors.grey, fontStyle: FontStyle.italic));
-                          }
-                        return ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: referencias.length,
-                          itemBuilder: (context, idx) {
-                            final Map<String, dynamic> ref = referencias[idx];
-                            final String nombreDestino = ref['libros']['nombre'] ?? 'Libro';
-                            final int capDestino = ref['destino_capitulo'] as int;
-                            final int verDestino = ref['destino_versiculo'] as int;
-                            final String citaCompleta = '$nombreDestino $capDestino:$verDestino';
-                          
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0, bottom: 4.0),
-                            child: ActionChip(
-                              elevation: 0.5,
-                              backgroundColor: Colors.blue.shade50,
-                              label: Text(citaCompleta, style: const TextStyle(color: Colors.blue, 
-                              fontWeight: FontWeight.bold, fontSize: 13)),
-                            onPressed: () {
-                              Navigator.pop(context); // Cierra la paleta
-                            // Almacenamos el rastro en la pila para el botón Volver
-                            _histOriginalRegresoAlSaltar();
-                            
-                            setState(() {
-                              _libroSeleccionado = ref['destino_libro_id'] as int;
-                              _capituloSeleccionado = capDestino;});
-                              
-                            _cargarResaltadosYTexto();
-                            },
-                            ),
-                          );
-                          },
-                        );
-                        },
-                    ),
-                  ),
-                ]
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
   // Método modular para guardar el rastro de lectura antes del salto
   void _histOriginalRegresoAlSaltar({int? versiculo}) {
     _historialNavegacionRegreso.add({
@@ -1398,6 +1273,114 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
           Text(version),
         ],
       ),
+    );
+  }
+
+    // 🚀 INTERFAZ MODAL: Muestra la bitácora de lectura con opción de re-lectura inmediata
+  void _mostrarHistorialLecturaModal() {
+    final bool esOscuro = _ajustesGlobales.modoOscuroLectura;
+    final Color colorFondoM = esOscuro ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color colorTextoM = esOscuro ? Colors.white : Colors.black87;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: colorFondoM,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.70,
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '📜 Bitácora de Lectura Devocional',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: esOscuro ? Colors.blue.shade300 : const Color(0xFF1A73E8)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                ],
+              ),
+              const Divider(height: 10),
+              const SizedBox(height: 8),
+              
+              Expanded(
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  // 💡 Consulta al Helper de la base de datos tu tabla de registros históricos
+                  future: _dbHelper.obtenerHistorialLectura(), 
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final registros = snapshot.data ?? [];
+                    if (registros.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'Aún no registras capítulos completados.\n¡Tus lecturas aparecerán aquí!',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      itemCount: registros.length,
+                      itemBuilder: (context, index) {
+                        final reg = registros[index];
+                        final int libId = reg['libro_id'] ?? 1;
+                        final int capNum = reg['capitulo'] ?? 1;
+                        final String fecha = reg['fecha_lectura'] ?? reg['created_at'] ?? '';
+                        final String nombreLibroHist = _dbHelper.obtenerNombreLibro(libId);
+
+                        // Formateo visual discreto de la fecha (extrae YYYY-MM-DD si viene con hora)
+                        final String fechaLimpia = fecha.length >= 10 ? fecha.substring(0, 10) : fecha;
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                          leading: CircleAvatar(
+                            backgroundColor: const Color(0xFF1A73E8).withOpacity(0.1),
+                            child: const Icon(Icons.menu_book_rounded, color: Color(0xFF1A73E8), size: 20),
+                          ),
+                          title: Text(
+                            '$nombreLibroHist Capítulo $capNum',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: colorTextoM, fontSize: 15),
+                          ),
+                          subtitle: Text(
+                            'Completado el: $fechaLimpia',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.grey),
+                          shape: Border(bottom: BorderSide(color: esOscuro ? Colors.grey.shade800 : Colors.grey.shade200, width: 0.5)),
+                          onTap: () {
+                            Navigator.pop(context); // Cierra el historial
+                            
+                            // Guardamos la lectura actual en la pila de retorno antes de saltar
+                            _histOriginalRegresoAlSaltar();
+                            
+                            setState(() {
+                              _libroSeleccionado = libId;
+                              _capituloSeleccionado = capNum;
+                            });
+                            
+                            _cargarResaltadosYTexto(); // Salta al capítulo histórico seleccionado
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }    

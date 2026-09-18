@@ -91,7 +91,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     }
   }
 
-    // 🚀 CENTRALIZADOR ANALÍTICO CON INTERCEPCIÓN PULL-TO-REFRESH
+  // 🚀 CENTRALIZADOR ANALÍTICO CON INTERCEPCIÓN PULL-TO-REFRESH
   Future<void> _refrescarDatosDesdeNube() async {
     if (!mounted) return;
     setState(() => _cargandoDashboard = true);
@@ -107,28 +107,53 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
 
       final String usuarioUid = _supabase.auth.currentUser?.id ?? '';
 
-      // 2. Cargar Racha e Historial Devocional Remoto (Solo si está Online)
+      // 2. Cargar Racha e Historial Devocional Remoto (Sincronizado al Segundo)
       if (_estaOnline && usuarioUid.isNotEmpty) {
-        final perfil = await _supabase.from('perfiles_pastor').select('racha_actual').eq('id', usuarioUid).maybeSingle();
-        _rachaDias = perfil != null ? (perfil['racha_actual'] ?? 0) : 0;
+        // Traemos el marcador canónico del perfil del pastor
+        final perfil = await _supabase.from('perfiles_pastor').select('racha_actual, ultima_fecha_lectura').eq('id', usuarioUid).maybeSingle();
+        
+        if (perfil != null) {
+          _rachaDias = perfil['racha_actual'] ?? 0;
+          final String? ultimaFechaRaw = perfil['ultima_fecha_lectura'];
 
+          // 🛡️ SALVAGUARDA DE COLOQUEL DE RACHA DIARIA:
+          // Si pasó más de un día desde la última lectura, la racha visual cae a 0 de forma automática hasta que vuelva a leer
+          if (ultimaFechaRaw != null && ultimaFechaRaw.isNotEmpty) {
+            // Solo intentamos analizar si trae al menos el formato YYYY-MM-DD (10 caracteres)
+            final DateTime? fechaUltimaLectura = ultimaFechaRaw.length >= 10
+                ? DateTime.tryParse(ultimaFechaRaw.substring(0, 10))
+                : null;
+            final DateTime hoy = DateTime.now();
+            final DateTime hoyLimpio = DateTime(hoy.year, hoy.month, hoy.day);
+            
+            if (fechaUltimaLectura != null && hoyLimpio.difference(fechaUltimaLectura).inDays > 1) {
+              _rachaDias = 0; // La racha expiró por inactividad
+            }
+          }
+        } else {
+          _rachaDias = 0;
+        }
+
+        // Descargamos la bitácora completa de progreso de lectura
         final List<dynamic> registrosLectura = await _supabase
             .from('progreso_lectura')
             .select('libro_id, capitulo, versiculos_leidos, fecha_lectura')
             .eq('usuario_id', usuarioUid);
         
-        int sumaVersos = 0;
+        int bVersos = 0;
         int capsSemanales = 0;
         int capsMensuales = 0;
+        
+        // Normalización estricta de tiempos devocionales
         final ahora = DateTime.now();
-        final hace7Dias = ahora.subtract(const Duration(days: 7));
-        final hace30Dias = ahora.subtract(const Duration(days: 30));
+        final hace7Dias = DateTime(ahora.year, ahora.month, ahora.day).subtract(const Duration(days: 7));
+        final hace30Dias = DateTime(ahora.year, ahora.month, ahora.day).subtract(const Duration(days: 30));
         Map<int, List<int>> capitulosPorLibro = {};
 
         for (var reg in registrosLectura) {
           int libId = reg['libro_id'];
           int cap = reg['capitulo'];
-          sumaVersos += (reg['versiculos_leidos'] as num).toInt();
+          bVersos += (reg['versiculos_leidos'] as num).toInt();
 
           if (reg['fecha_lectura'] != null) {
             final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
@@ -152,15 +177,17 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           }
         }
 
-        _totalCapitulosLeidos = registrosLectura.length;
-        _totalVersiculosLeidos = sumaVersos;
-        _minutosSemanales = capsSemanales * 4;
-        _minutosMensuales = capsMensuales * 4;
-        _totalLibrosCompletados = librosTerminados;
-        _librosFaltantes = pendientes;
+        setState(() {
+          _totalCapitulosLeidos = registrosLectura.length;
+          _totalVersiculosLeidos = bVersos;
+          _minutosSemanales = capsSemanales * 4; // 4 minutos promedio estimado por capítulo leídos
+          _minutosMensuales = capsMensuales * 4;
+          _totalLibrosCompletados = librosTerminados;
+          _librosFaltantes = pendientes;
+        });
       }
 
-      // 3. Cargar Ecosistema de Bosquejos y Calcular Top 3 Libros
+      // 3. Ecosistema Analítico de Bosquejos y Homilética
       final List<dynamic> bosquejos = await _dbHelper.obtenerHistorialBosquejos();
       _totalSermones = bosquejos.length;
       
@@ -175,17 +202,12 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
       int atCount = 0;
       int ntCount = 0;
       Map<int, int> mapaFrecuenciaLibros = {};
-
-      // 🛡️ RECIPIENTE BLINDADO CONTRA RUIDOS JSON EN FLUTTER QUILL:
       final RegExp regExp = RegExp(r'([1-3]?\s?[A-Z][a-záéíóúÁÉÍÓÚñÑ]+)\s+([0-9]+)\s*:\s*([0-9]+)');
 
       for (var b in bosquejos) {
         String contenidoRaw = b['contenido_json'].toString();
         String tituloRaw = b['titulo'].toString();
-        
-        // Removemos llaves, corchetes y caracteres JSON de la cadena antes de aplicar el RegExp
-        final String textoLimpio = '$tituloRaw $contenidoRaw'
-            .replaceAll(RegExp(r'[\{\}\[\]\(\)\"\,\\]'), ' ');
+        final String textoLimpio = '$tituloRaw $contenidoRaw'.replaceAll(RegExp(r'[\{\}\[\]\(\)\"\,\\]'), ' ');
 
         final matches = regExp.allMatches(textoLimpio);
         for (var m in matches) {
@@ -201,29 +223,14 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           }
         }
       }
-      // Guardamos de golpe en tus variables de control global
-      setState(() {
-        _atCitasCount = atCount;
-        _ntCitasCount = ntCount;
 
-        var listaOrdenadaLibros = mapaFrecuenciaLibros.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        
-        _topLibrosMasPredicados = listaOrdenadaLibros.take(3).map((e) => {
-          'nombre': _dbHelper.obtenerNombreLibro(e.key),
-          'citas': e.value
-        }).toList();
-      });
-
-      // 4. 🎨 MOTOR DE CONTEO DE COLORES DE RESALTADO NATIVO E HÍBRIDO (MÓVIL / WEB):
+      // 4. Conteo e Indexación de Resaltados Teológicos (Móvil / Web)
       Map<String, dynamic> decodedResaltados = {};
       
       if (_estaOnline && usuarioUid.isNotEmpty) {
-        // En web o con red, intentamos traer los últimos resaltados directo de Supabase
         decodedResaltados = await _dbHelper.descargarResaltadosDeNube();
       } 
       
-      // Si Supabase falló o vino vacío, recurrimos a SharedPreferences locales
       if (decodedResaltados.isEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final String? resaltadosRaw = prefs.getString('biblioteca_resaltados');
@@ -242,11 +249,23 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         if (colorInt == Colors.pink.value || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
       }
 
-      // Si bajamos datos frescos de la nube, actualizamos la caché local por seguridad
       if (_estaOnline && decodedResaltados.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('biblioteca_resaltados', jsonEncode(decodedResaltados));
       }
+
+      setState(() {
+        _atCitasCount = atCount;
+        _ntCitasCount = ntCount;
+
+        var listaOrdenadaLibros = mapaFrecuenciaLibros.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        
+        _topLibrosMasPredicados = listaOrdenadaLibros.take(3).map((e) => {
+          'nombre': _dbHelper.obtenerNombreLibro(e.key),
+          'citas': e.value
+        }).toList();
+      });
 
     } catch (e) { 
       print("Error cargando dashboard unificado: $e"); 
