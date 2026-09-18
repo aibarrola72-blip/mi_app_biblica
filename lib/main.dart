@@ -3,29 +3,26 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:mi_app_biblica/modules/lector/splash_screen_view.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'modules/bosquejos/vista_editor.dart'; // Importa el archivo del editor
-// import 'package:flutter/foundation.dart' show kIsWeb;
+import 'modules/bosquejos/vista_editor.dart';
+
+// Las credenciales pueden sobrescribirse en compilación con:
+// flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+const String _supabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://qvbojzmtdbrrahtewrrr.supabase.co',
+);
+const String _supabaseAnonKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 🚀 DIRECCIÓN INTELIGENTE: Si es Web usa localhost, si es celular usa la IP de la red Wi-Fi
-  final String urlBaseSupabase = 
-  // kIsWeb 
-       'https://qvbojzmtdbrrahtewrrr.supabase.co'; // Reemplázala por tu IPv4 real de la PC
-
   await Supabase.initialize(
-    url: urlBaseSupabase,
-    anonKey: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
+    url: _supabaseUrl,
+    publishableKey: _supabaseAnonKey,
   );
-  try {
-    await Supabase.initialize(
-      url: 'https://supabase.co',
-      anonKey: 'sb_publishable_DaWE6HlrHwmTJAMeWOIyEQ_xOih2tAG',
-    );
-  } catch (errorDeRed) {
-    print("🔴 Error crítico de enlace con Supabase: $errorDeRed");
-  }
 
   runApp(const MiAppBiblica());
 }
@@ -43,7 +40,7 @@ class MiAppBiblica extends StatelessWidget {
         primaryColor: const Color(0xFF1A73E8),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A73E8)),
       ),
-      
+
       // CONFIGURACIÓN DE IDIOMAS PARA EL EDITOR DE SERMONES
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -52,10 +49,10 @@ class MiAppBiblica extends StatelessWidget {
         FlutterQuillLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('es'), 
+        Locale('es'),
         Locale('en'),
       ],
-      
+
       home: const SplashScreenView(),
     );
   }
@@ -74,4 +71,3 @@ class PantallaPrincipalBase extends StatelessWidget {
     );
   }
 }
-

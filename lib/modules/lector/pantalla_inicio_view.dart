@@ -243,10 +243,10 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
 
       for (var valorColor in decodedResaltados.values) {
         int colorInt = valorColor as int;
-        if (colorInt == Colors.yellow.value || colorInt == 0xFFFFF59D) _conteoColoresResaltados[0xFFFFF59D] = _conteoColoresResaltados[0xFFFFF59D]! + 1;
-        if (colorInt == Colors.green.value || colorInt == 0xFFA5D6A7) _conteoColoresResaltados[0xFFA5D6A7] = _conteoColoresResaltados[0xFFA5D6A7]! + 1;
-        if (colorInt == Colors.blue.value || colorInt == 0xFF9FA8DA) _conteoColoresResaltados[0xFF9FA8DA] = _conteoColoresResaltados[0xFF9FA8DA]! + 1;
-        if (colorInt == Colors.pink.value || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
+        if (colorInt == Colors.yellow.toARGB32() || colorInt == 0xFFFFF59D) _conteoColoresResaltados[0xFFFFF59D] = _conteoColoresResaltados[0xFFFFF59D]! + 1;
+        if (colorInt == Colors.green.toARGB32() || colorInt == 0xFFA5D6A7) _conteoColoresResaltados[0xFFA5D6A7] = _conteoColoresResaltados[0xFFA5D6A7]! + 1;
+        if (colorInt == Colors.blue.toARGB32() || colorInt == 0xFF9FA8DA) _conteoColoresResaltados[0xFF9FA8DA] = _conteoColoresResaltados[0xFF9FA8DA]! + 1;
+        if (colorInt == Colors.pink.toARGB32() || colorInt == 0xFFF48FB1) _conteoColoresResaltados[0xFFF48FB1] = _conteoColoresResaltados[0xFFF48FB1]! + 1;
       }
 
       if (_estaOnline && decodedResaltados.isNotEmpty) {
@@ -423,7 +423,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                           Container(
                             padding: const EdgeInsets.all(10), 
                             decoration: BoxDecoration(
-                              color: (_ultimoSermonObjeto == null ? Colors.grey : Colors.orange).withOpacity(0.12), 
+                              color: (_ultimoSermonObjeto == null ? Colors.grey : Colors.orange).withValues(alpha: 0.12), 
                               borderRadius: BorderRadius.circular(10),
                             ), 
                             child: Icon(
@@ -757,7 +757,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                         children: [
                           CircleAvatar(
                             radius: 11, 
-                            backgroundColor: colorBarra.withOpacity(0.12), 
+                            backgroundColor: colorBarra.withValues(alpha: 0.12), 
                             child: Text(
                               '${index + 1}', 
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: colorBarra),

@@ -686,7 +686,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                         },),// Divisor vertical idéntico a tus estándares estéticos
                         VerticalDivider(color: esOscuro ? Colors.grey.shade800 : Colors.black12, width: 16, thickness: 1, indent: 10, endIndent: 10),
                         // 2. PALETA DIRECTA DE ACCIÓN RÁPIDA (Usando tu widget _circuloPaleta original)
-                        ...[Colors.yellow.value, Colors.green.value, Colors.blue.value, Colors.pink.value].map((int colorValue) {
+                        ...[Colors.yellow.toARGB32(), Colors.green.toARGB32(), Colors.blue.toARGB32(), Colors.pink.toARGB32()].map((int colorValue) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 3.0),
                               child: _circuloPaleta(
@@ -774,7 +774,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                             // Unimos los versículos compactos, la cita formal y la firma dinámica
                             final String message = '$textoCompletoBloque— $nombreLibro $_capituloSeleccionado:$versiculosFormateados ($_versionSeleccionada)\n$firmaEstructurada';
                             
-                            Share.share(message); 
+                            SharePlus.instance.share(ShareParams(text: message)); 
                             
                             setState(() {
                               _versiculosSeleccionados.clear();
@@ -1183,7 +1183,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
                               return ListTile(
                                 selected: esLibroActual,
-                                selectedTileColor: Colors.blue.shade50.withOpacity(0.4),
+                                selectedTileColor: Colors.blue.shade50.withValues(alpha: 0.4),
                                 leading: CircleAvatar(
                                   backgroundColor: esLibroActual ? Colors.blue : Colors.blue.shade50,
                                   child: Text('$libroId', style: TextStyle(fontSize: 12, color: esLibroActual ? Colors.white : Colors.blue, fontWeight: FontWeight.bold)),
@@ -1345,7 +1345,7 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                           leading: CircleAvatar(
-                            backgroundColor: const Color(0xFF1A73E8).withOpacity(0.1),
+                            backgroundColor: const Color(0xFF1A73E8).withValues(alpha: 0.1),
                             child: const Icon(Icons.menu_book_rounded, color: Color(0xFF1A73E8), size: 20),
                           ),
                           title: Text(

@@ -1,30 +1,55 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
+// Tests unitarios del catálogo bíblico (lógica pura, sin Supabase ni SQLite).
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mi_app_biblica/main.dart';
+import 'package:mi_app_biblica/database/libros_catalogo.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('nombresLibrosCanonicos', () {
+    test('resuelve libros al inicio y final del canon', () {
+      expect(nombresLibrosCanonicos[1], 'Génesis');
+      expect(nombresLibrosCanonicos[66], 'Apocalipsis');
+      expect(nombresLibrosCanonicos.length, 66);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('devuelve null para ids fuera de rango', () {
+      expect(nombresLibrosCanonicos[0], isNull);
+      expect(nombresLibrosCanonicos[67], isNull);
+    });
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  group('removerAcentostildes', () {
+    test('limpia tildes, convierte a minúsculas y quita puntos', () {
+      expect(removerAcentostildes('Éxodo'), 'exodo');
+      expect(removerAcentostildes('1 Crónicas.'), '1 cronicas');
+      expect(removerAcentostildes('Apocalipsis'), 'apocalipsis');
+    });
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  group('obtenerIdLibro', () {
+    test('reconoce nombres completos con tildes y mayúsculas', () {
+      expect(obtenerIdLibro('Génesis'), 1);
+      expect(obtenerIdLibro('Apocalipsis'), 66);
+      expect(obtenerIdLibro('1 Corintios'), 46);
+      expect(obtenerIdLibro('Éxodo'), 2);
+    });
+
+    test('reconoce abreviaturas y formatos con puntos', () {
+      expect(obtenerIdLibro('Gn'), 1);
+      expect(obtenerIdLibro('1 Co.'), 46);
+      expect(obtenerIdLibro('Ap'), 66);
+      expect(obtenerIdLibro('Sal.'), 19);
+    });
+
+    test('devuelve 0 para textos no reconocidos', () {
+      expect(obtenerIdLibro('Texto Inventado'), 0);
+    });
+  });
+
+  group('abreviaturasLibros', () {
+    test('el mapa de abreviaturas cubre todos los libros', () {
+      expect(abreviaturasLibros['genesis'], 1);
+      expect(abreviaturasLibros['apocalipsis'], 66);
+      expect(abreviaturasLibros['jn'], 43);
+    });
   });
 }

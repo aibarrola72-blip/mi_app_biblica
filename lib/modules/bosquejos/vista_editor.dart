@@ -1004,7 +1004,7 @@ class _VistaEditorBosquejoState extends State<VistaEditorBosquejo> {
                     
                     // Botón existente de cerrar el panel
                     CircleAvatar(
-                      backgroundColor: Colors.red.withOpacity(0.12),
+                      backgroundColor: Colors.red.withValues(alpha: 0.12),
                       radius: 18,
                       child: IconButton(
                         icon: const Icon(Icons.close, color: Colors.red, size: 18), 
