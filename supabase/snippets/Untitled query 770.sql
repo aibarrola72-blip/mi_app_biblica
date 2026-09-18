@@ -1,1 +1,0 @@
-TRUNCATE TABLE public.referencias_cruzadas RESTART IDENTITY CASCADE;
