@@ -19,31 +19,47 @@ class _SplashScreenViewState extends State<SplashScreenView> {
   String _estadoCarga = "Iniciando sistema...";
   bool _mostrarBotonLogin = false; // Controla si se requiere autenticación
   final AuthService _authService = AuthService();
+  final BibliaDatabaseHelper _dbHelper = BibliaDatabaseHelper();
 
   @override
   void initState() {
     super.initState();
+    _dbHelper.progresoOffline.addListener(_escucharProgresoOffline);
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _opacidad = 1.0);
     });
     _ejecutarPrecargaYVerificacion();
   }
 
+  @override
+  void dispose() {
+    _dbHelper.progresoOffline.removeListener(_escucharProgresoOffline);
+    super.dispose();
+  }
+
+  void _escucharProgresoOffline() {
+    if (!mounted || _mostrarBotonLogin) return;
+    final String mensaje = _dbHelper.progresoOffline.value;
+    if (mensaje.isNotEmpty) setState(() => _estadoCarga = mensaje);
+  }
+
   Future<void> _ejecutarPrecargaYVerificacion() async {
     final int milisegundosInicio = DateTime.now().millisecondsSinceEpoch;
 
     try {
-      final dbHelper = BibliaDatabaseHelper();
       if (kIsWeb) {
         if (mounted) setState(() => _estadoCarga = "Configurando entorno web...");
-        dbHelper.obtenerMapaAbreviaturas();
+        _dbHelper.obtenerMapaAbreviaturas();
       } else {
         if (mounted) setState(() => _estadoCarga = "Verificando base de datos offline...");
-        final db = await dbHelper.databaseLocal;
+        final db = await _dbHelper.databaseLocal;
         if (db != null) {
           await db.rawQuery('PRAGMA synchronous = NORMAL;');
         }
-        dbHelper.obtenerMapaAbreviaturas();
+        _dbHelper.obtenerMapaAbreviaturas();
+        // Población de la biblioteca offline en un isolate: no congela la UI
+        // y los futuros capítulos se leen por SQL en lugar de re-parssear JSON.
+        _dbHelper.inicializarBibliotecaOffline();
       }
     } catch (_) {}
 

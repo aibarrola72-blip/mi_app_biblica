@@ -1,11 +1,12 @@
 // lib/database/biblia_db_helper.dart
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb; // Detecta si es Web nativo
+import 'package:flutter/foundation.dart'; // kIsWeb, compute y ValueNotifier
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sqflite/sqflite.dart' as sql; // Importación limpia multiplataforma
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'libros_catalogo.dart';
 
 class BibliaDatabaseHelper {
@@ -19,6 +20,11 @@ class BibliaDatabaseHelper {
   // CACHÉ EN MEMORIA GLOBAL: Funciona tanto en Web como en Móvil a velocidad luz
   final Map<String, List<Map<String, dynamic>>> _cacheCapitulos = {};
   final Map<String, List<Map<String, dynamic>>> _cacheReferencias = {};
+
+  // POBLACIÓN OFF LINE DE LA BIBLIOTECA EN SEGUNDO PLANO (progreso visible en el splash)
+  bool _poblacionEnCurso = false;
+  final ValueNotifier<String> _progresoOffline = ValueNotifier('');
+  ValueNotifier<String> get progresoOffline => _progresoOffline;
 
   // Inicializador multiplataforma seguro: En Web no hace nada, en Móvil abre SQLite
   Future<dynamic> get databaseLocal async {
@@ -87,25 +93,43 @@ class BibliaDatabaseHelper {
   // 🚀 REEMPLAZA EL MÉTODO EXACTO EN TU BIBLIA_DB_HELPER.DART
   int obtenerLibroId(String nombreLibro) => obtenerIdLibro(nombreLibro);
 
-  // 🚀 LECTURA DE CAPÍTULO HÍBRIDO (Inmune a caídas Web y Móvil)
-  // 🚀 LECTURA DE CAPÍTULO CON CACHÉ DE ESCRITURA CORREGIDA
-  // 🚀 LECTURA DE CAPÍTULO HÍBRIDO CON CONTINGENCIA JSON HTML LOCAL
+  // 🚀 LECTURA DE CAPÍTULO OFFLINE-FIRST (SQLite → Nube → JSON en isolate)
+  // No consume red cuando la biblia offline ya está poblada y ningún
+  // jsonDecode pesado se ejecuta en el hilo de interfaz.
   Future<List<Map<String, dynamic>>> obtenerCapitulo(int libroId, int capitulo, {String versionId = 'RV1960'}) async {
     final llaveCache = '${versionId}_${libroId}_$capitulo';
     if (_cacheCapitulos.containsKey(llaveCache)) return _cacheCapitulos[llaveCache]!;
 
+    // 1. PERSISTENCIA LOCAL SQLITE (biblioteca completa precargada en segundo plano)
+    if (!kIsWeb) {
+      final db = await databaseLocal;
+      if (db != null) {
+        final resultadoLocal = await db.query(
+          'cache_versiculos',
+          where: 'version_id = ? AND libro_id = ? AND capitulo = ?',
+          whereArgs: [versionId, libroId, capitulo],
+          orderBy: 'versiculo ASC',
+        );
+
+        if (resultadoLocal.isNotEmpty) {
+          final transformado = resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
+          _cacheCapitulos[llaveCache] = transformado;
+          return transformado;
+        }
+      }
+    }
+
+    // 2. NUBE: Supabase como fuente canónica cuando hay señal (y la cachea en SQLite)
     try {
       final response = await _client
           .from('versiculos')
           .select('libro_id, capitulo, versiculo, texto, version_id')
-          .eq('version_id', versionId) 
+          .eq('version_id', versionId)
           .eq('libro_id', libroId)
           .eq('capitulo', capitulo)
           .order('versiculo', ascending: true)
-          .timeout(const Duration(milliseconds: 1500)); 
-          
-      print('🔍 Datos crudos recibidos en el teléfono: ${response.toString()}');
-      
+          .timeout(const Duration(milliseconds: 1500));
+
       final resultadoNube = List<Map<String, dynamic>>.from(response);
 
       if (resultadoNube.isNotEmpty) {
@@ -133,92 +157,85 @@ class BibliaDatabaseHelper {
         }
         return resultadoNube;
       }
-    } catch (e) { 
-      print('Servidor inalcanzable. Buscando persistencia local SQLite... $e'); 
+    } catch (e) {
+      print('Servidor inalcanzable. Buscando persistencia local SQLite... $e');
     }
 
-    // 1. Intento secundario: Buscar en la caché de SQLite local (Dispositivos móviles con historial)
-    if (!kIsWeb) {
-      final db = await databaseLocal;
-      if (db != null) {
-        final resultadoLocal = await db.query(
-          'cache_versiculos',
-          where: 'version_id = ? AND libro_id = ? AND capitulo = ?',
-          whereArgs: [versionId, libroId, capitulo],
-          orderBy: 'versiculo ASC',
-        );
-
-        if (resultadoLocal.isNotEmpty) {
-          final transformado = resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
-          _cacheCapitulos[llaveCache] = transformado;
-          return transformado;
-        }
-      }
-    }
-
-        // 2. CONTINGENCIA ABSOLUTA COSTO $0: Extraer y consolidar desde el nodo limpio "items" del JSON
+    // 3. CONTINGENCIA JSON: parseo pesado en un isolate para nunca congelar la interfaz
     try {
-      final Map<String, String> mapeoArchivosJson = {
-        'RV1960': 'rv1960', 'NVI': 'nvi128', 'RVC': 'rvc', 'RVA2015': 'rva2015',
-        'TLA': 'tla', 'TLAI': 'tlai', 'NVIC': 'nvi1637', 'NTV': 'ntv',
-        'NBLA': 'nbla', 'LBLA': 'lbla', 'DHH': 'dhh', 'DHHS': 'dhhs',
-      };
-
-      final String nombreArchivo = mapeoArchivosJson[versionId] ?? 'rv1960';
+      final String nombreArchivo = _archivosJsonPorVersion[versionId] ?? 'rv1960';
       final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/$nombreArchivo.json');
-      final Map<String, dynamic> objetoCampana = jsonDecode(contenidoJsonCrudo);
-      final List<dynamic> librosJson = objetoCampana['books'] ?? [];
 
-      if (librosJson.length >= libroId) {
-        final Map<String, dynamic> libroMap = librosJson[libroId - 1];
-        final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
+      final List<Map<String, dynamic>> textosOfflineJson = await compute(_parsearCapituloDesdeJson, {
+        'contenido': contenidoJsonCrudo,
+        'libroId': libroId,
+        'capitulo': capitulo,
+        'versionId': versionId,
+      });
 
-        if (capitulosJson.length >= capitulo) {
-          final Map<String, dynamic> capituloMap = capitulosJson[capitulo - 1];
-          
-          // 🚀 CAMBIO CRÍTICO: Apuntamos al arreglo estructurado "items" en lugar de "chapter_html"
-          final List<dynamic> itemsVersiculos = capituloMap['items'] ?? [];
-          List<Map<String, dynamic>> textosOfflineJson = [];
-
-          for (var item in itemsVersiculos) {
-            // Ignoramos los títulos de los bloques (heading1) y procesamos solo los versículos
-            if (item['type'] == 'verse') {
-              final List<dynamic> numerosVerso = item['verse_numbers'] ?? [];
-              final List<dynamic> lineasTexto = item['lines'] ?? [];
-
-              if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
-                final int numVersiculoReal = numerosVerso.first as int;
-                
-                // Unificamos las líneas de texto del versículo en un solo String limpio
-                String textoUnificado = lineasTexto.join(' ').trim();
-
-                // Aplicamos el descodificador matemático de acentos y tildes decimales
-                textoUnificado = textoUnificado.replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
-                  return String.fromCharCode(int.parse(m.group(1)!));
-                });
-
-                textosOfflineJson.add({
-                  'libro_id': libroId,
-                  'capitulo': capitulo,
-                  'versiculo': numVersiculoReal,
-                  'texto': textoUnificado.replaceAll(RegExp(r'\s+'), ' '), // Sanitiza espacios dobles
-                  'version_id': versionId,
-                });
-              }
-            }
-          }
-
-          if (textosOfflineJson.isNotEmpty) {
-            _cacheCapitulos[llaveCache] = textosOfflineJson;
-            return textosOfflineJson;
-          }
-        }
+      if (textosOfflineJson.isNotEmpty) {
+        _cacheCapitulos[llaveCache] = textosOfflineJson;
+        return textosOfflineJson;
       }
     } catch (e) {
       print('Fallo crítico al mapear el nodo items del archivo bíblico JSON: $e');
     }
 
-    return []; 
+    return [];
+  }
+
+  // 🚀 POBLACIÓN COMPLETA DE LA BIBLIOTECA OFFLINE EN SEGUNDO PLANO
+  // Lee cada JSON de Biblia en un isolate y vuelca todos sus versículos en
+  // cache_versiculos (tabla con índice por capítulo). Se ejecuta una vez por
+  // versión; las versiones terminadas se omiten en reinicios posteriores.
+  Future<void> inicializarBibliotecaOffline() async {
+    if (kIsWeb || _poblacionEnCurso) return;
+    _poblacionEnCurso = true;
+    try {
+      final db = await databaseLocal;
+      if (db == null) return;
+      final prefs = await SharedPreferences.getInstance();
+
+      for (final versionEntrada in _archivosJsonPorVersion.entries) {
+        final String versionId = versionEntrada.key;
+        final String prefClave = 'biblia_offline_completa_$versionId';
+        if (prefs.getBool(prefClave) ?? false) continue;
+
+        _progresoOffline.value = 'Preparando biblioteca offline ($versionId)...';
+        final String contenido =
+            await rootBundle.loadString('assets/biblias/${versionEntrada.value}.json');
+
+        final List<List<dynamic>> filas = await compute(_parsearVersionJsonCompleta, {
+          'contenido': contenido,
+          'versionId': versionId,
+        });
+
+        for (int inicio = 0; inicio < filas.length; inicio += 1500) {
+          final int finRes = inicio + 1500 > filas.length ? filas.length : inicio + 1500;
+          final lote = db.batch();
+          for (final fila in filas.sublist(inicio, finRes)) {
+            lote.insert(
+              'cache_versiculos',
+              {
+                'version_id': fila[0],
+                'libro_id': fila[1],
+                'capitulo': fila[2],
+                'versiculo': fila[3],
+                'texto': fila[4],
+              },
+              conflictAlgorithm: sql.ConflictAlgorithm.replace,
+            );
+          }
+          await lote.commit(noResult: true);
+        }
+        await prefs.setBool(prefClave, true);
+      }
+    } catch (e) {
+      print('Error al preparar la biblioteca offline: $e');
+    } finally {
+      _progresoOffline.value = '';
+      _poblacionEnCurso = false;
+    }
   }
 
   // 🚀 REFERENCIAS CRUZADAS CON CACHÉ DE ESCRITURA CORREGIDA
@@ -920,4 +937,104 @@ class BibliaDatabaseHelper {
       return [];
     }
   }
+}
+
+// =====================================================================
+// PARSERS TOP-LEVEL (aislables con compute): consumen mucho tiempo en la
+// interfaz, por eso se ejecutan dentro de un isolate y nunca en el hilo UI.
+// =====================================================================
+
+const Map<String, String> _archivosJsonPorVersion = {
+  'RV1960': 'rv1960', 'NVI': 'nvi128', 'RVC': 'rvc', 'RVA2015': 'rva2015',
+  'TLA': 'tla', 'TLAI': 'tlai', 'NVIC': 'nvi1637', 'NTV': 'ntv',
+  'NBLA': 'nbla', 'LBLA': 'lbla', 'DHH': 'dhh', 'DHHS': 'dhhs',
+};
+
+String _limpiarTextoHtml(String textoUnificado) {
+  return textoUnificado
+      .replaceAllMapped(RegExp(r'&#([0-9]+);'), (Match m) {
+        return String.fromCharCode(int.parse(m.group(1)!));
+      })
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+}
+
+/// Extrae un capítulo específico del JSON de una versión.
+List<Map<String, dynamic>> _parsearCapituloDesdeJson(Map<String, Object> argumentos) {
+  final String contenidoJsonCrudo = argumentos['contenido']! as String;
+  final int libroId = argumentos['libroId']! as int;
+  final int capitulo = argumentos['capitulo']! as int;
+  final String versionId = argumentos['versionId']! as String;
+
+  final Map<String, dynamic> objetoCampana = jsonDecode(contenidoJsonCrudo);
+  final List<dynamic> librosJson = objetoCampana['books'] ?? [];
+  final List<Map<String, dynamic>> textosOfflineJson = [];
+
+  if (librosJson.isEmpty) return textosOfflineJson;
+  if (libroId - 1 >= librosJson.length) return textosOfflineJson;
+
+  final Map<String, dynamic> libroMap = librosJson[libroId - 1];
+  final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
+
+  if (capitulo - 1 >= capitulosJson.length) return textosOfflineJson;
+
+  final Map<String, dynamic> capituloMap = capitulosJson[capitulo - 1];
+  final List<dynamic> itemsVersiculos = capituloMap['items'] ?? [];
+
+  for (var item in itemsVersiculos) {
+    if (item['type'] == 'verse') {
+      final List<dynamic> numerosVerso = item['verse_numbers'] ?? [];
+      final List<dynamic> lineasTexto = item['lines'] ?? [];
+
+      if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
+        textosOfflineJson.add({
+          'libro_id': libroId,
+          'capitulo': capitulo,
+          'versiculo': numerosVerso.first as int,
+          'texto': _limpiarTextoHtml(lineasTexto.join(' ')),
+          'version_id': versionId,
+        });
+      }
+    }
+  }
+  return textosOfflineJson;
+}
+
+/// Vuelca TODA una versión en filas planas [versionId, libroId, capitulo,
+/// versiculo, texto] para insertarse por lote en cache_versiculos.
+List<List<dynamic>> _parsearVersionJsonCompleta(Map<String, Object> argumentos) {
+  final String contenidoJsonCrudo = argumentos['contenido']! as String;
+  final String versionId = argumentos['versionId']! as String;
+
+  final Map<String, dynamic> objetoCampana = jsonDecode(contenidoJsonCrudo);
+  final List<dynamic> librosJson = objetoCampana['books'] ?? [];
+  final List<List<dynamic>> filas = [];
+
+  for (int idxLibro = 0; idxLibro < librosJson.length; idxLibro++) {
+    final Map<String, dynamic> libroMap = librosJson[idxLibro];
+    final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
+
+    for (int idxCapitulo = 0; idxCapitulo < capitulosJson.length; idxCapitulo++) {
+      final Map<String, dynamic> capituloMap = capitulosJson[idxCapitulo];
+      final List<dynamic> itemsVersiculos = capituloMap['items'] ?? [];
+
+      for (var item in itemsVersiculos) {
+        if (item['type'] == 'verse') {
+          final List<dynamic> numerosVerso = item['verse_numbers'] ?? [];
+          final List<dynamic> lineasTexto = item['lines'] ?? [];
+
+          if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
+            filas.add([
+              versionId,
+              idxLibro + 1,
+              idxCapitulo + 1,
+              numerosVerso.first as int,
+              _limpiarTextoHtml(lineasTexto.join(' ')),
+            ]);
+          }
+        }
+      }
+    }
+  }
+  return filas;
 }
