@@ -759,20 +759,56 @@ class BibliaDatabaseHelper {
   }
 
   // 📥 Cargar los resaltados de la nube al iniciar la app
+  // Descarga solo los cambios posteriores al último sync (gt updated_at)
+  // y los fusiona con la caché local previa. La primera vez trae todo.
   Future<Map<String, int>> descargarResaltadosDeNube() async {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return {};
 
-      final List<dynamic> respuesta = await _client
+      final prefs = await SharedPreferences.getInstance();
+      final String? ultimoSyncRaw = prefs.getString('ultimo_sync_resaltados');
+      final String? baseRaw = prefs.getString('biblioteca_resaltados');
+
+      Map<String, dynamic> mapaLocal = {};
+      if (baseRaw != null && baseRaw.isNotEmpty) {
+        try {
+          mapaLocal = jsonDecode(baseRaw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      var consulta = _client
           .from('resaltados_biblia')
-          .select('llave_resaltado, color_hex')
+          .select('llave_resaltado, color_hex, updated_at')
           .eq('user_id', user.id);
+      if (ultimoSyncRaw != null && ultimoSyncRaw.isNotEmpty) {
+        consulta = consulta.gt('updated_at', ultimoSyncRaw);
+      }
+      final List<dynamic> respuesta = await consulta;
+
+      String? cursor = ultimoSyncRaw;
+      for (var item in respuesta) {
+        final String llave = item['llave_resaltado'].toString();
+        final dynamic colorRaw = item['color_hex'];
+        final int color = colorRaw is num ? colorRaw.toInt() : 0;
+
+        if (color == 0) {
+          mapaLocal.remove(llave);
+        } else {
+          mapaLocal[llave] = color;
+        }
+
+        final String? upd = item['updated_at']?.toString();
+        if (upd != null && (cursor == null || upd.compareTo(cursor) > 0)) {
+          cursor = upd;
+        }
+      }
+
+      await prefs.setString('biblioteca_resaltados', jsonEncode(mapaLocal));
+      if (cursor != null) await prefs.setString('ultimo_sync_resaltados', cursor);
 
       final Map<String, int> mapaDescargado = {};
-      for (var item in respuesta) {
-        mapaDescargado[item['llave_resaltado'].toString()] = item['color_hex'];
-      }
+      mapaLocal.forEach((k, v) => mapaDescargado[k] = v is num ? v.toInt() : 0);
       return mapaDescargado;
     } catch (e) {
       print('Error al descargar sombreados de Supabase: $e');

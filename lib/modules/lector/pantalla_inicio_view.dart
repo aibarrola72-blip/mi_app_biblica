@@ -134,36 +134,49 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           _rachaDias = 0;
         }
 
-        // Descargamos la bitácora completa de progreso de lectura
-        final List<dynamic> registrosLectura = await _supabase
+        // Totales canónicos calculados en el SERVIDOR con .count(): no se
+        // descargan filas solo para saber cuántos capítulos fueron leídos.
+        final totalCapsRespuesta = await _supabase
             .from('progreso_lectura')
-            .select('libro_id, capitulo, versiculos_leidos, fecha_lectura')
+            .select('*')
+            .eq('usuario_id', usuarioUid)
+            .count(CountOption.exact);
+        final int totalCaps = totalCapsRespuesta.count;
+
+        // Solo la proyección ligera necesaria para los insights del dashboard:
+        // pares únicos (libro_id, capitulo) acotados por la restricción UNIQUE
+        // y versiculos_leidos sumados localmente para el total de versos.
+        final List<dynamic> detalleLectura = await _supabase
+            .from('progreso_lectura')
+            .select('libro_id, capitulo, versiculos_leidos')
             .eq('usuario_id', usuarioUid);
-        
+
         int bVersos = 0;
-        int capsSemanales = 0;
-        int capsMensuales = 0;
-        
-        // Normalización estricta de tiempos devocionales
-        final ahora = DateTime.now();
-        final hace7Dias = DateTime(ahora.year, ahora.month, ahora.day).subtract(const Duration(days: 7));
-        final hace30Dias = DateTime(ahora.year, ahora.month, ahora.day).subtract(const Duration(days: 30));
         Map<int, List<int>> capitulosPorLibro = {};
 
-        for (var reg in registrosLectura) {
+        for (var reg in detalleLectura) {
           int libId = reg['libro_id'];
           int cap = reg['capitulo'];
           bVersos += (reg['versiculos_leidos'] as num).toInt();
-
-          if (reg['fecha_lectura'] != null) {
-            final DateTime fechaReg = DateTime.parse(reg['fecha_lectura']);
-            if (fechaReg.isAfter(hace7Dias)) capsSemanales++;
-            if (fechaReg.isAfter(hace30Dias)) capsMensuales++;
-          }
-
           capitulosPorLibro.putIfAbsent(libId, () => []);
           if (!capitulosPorLibro[libId]!.contains(cap)) capitulosPorLibro[libId]!.add(cap);
         }
+
+        // Conteos semanales y mensuales filtrados en el servidor (solo fecha, sin filas)
+        final String hace7DiasIso = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+        final String hace30DiasIso = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+        final capsSemanalesRespuesta = await _supabase
+            .from('progreso_lectura')
+            .select('*')
+            .eq('usuario_id', usuarioUid)
+            .gte('fecha_lectura', hace7DiasIso)
+            .count(CountOption.exact);
+        final capsMensualesRespuesta = await _supabase
+            .from('progreso_lectura')
+            .select('*')
+            .eq('usuario_id', usuarioUid)
+            .gte('fecha_lectura', hace30DiasIso)
+            .count(CountOption.exact);
 
         int librosTerminados = 0;
         List<String> pendientes = [];
@@ -178,10 +191,10 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
         }
 
         setState(() {
-          _totalCapitulosLeidos = registrosLectura.length;
+          _totalCapitulosLeidos = totalCaps;
           _totalVersiculosLeidos = bVersos;
-          _minutosSemanales = capsSemanales * 4; // 4 minutos promedio estimado por capítulo leídos
-          _minutosMensuales = capsMensuales * 4;
+          _minutosSemanales = capsSemanalesRespuesta.count * 4; // 4 minutos promedio estimado por capítulo leídos
+          _minutosMensuales = capsMensualesRespuesta.count * 4;
           _totalLibrosCompletados = librosTerminados;
           _librosFaltantes = pendientes;
         });
