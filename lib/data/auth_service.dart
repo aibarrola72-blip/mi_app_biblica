@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:mi_app_biblica/core/config.dart';
 
 class AuthService {
   final _supabase = Supabase.instance.client;
@@ -68,4 +69,31 @@ class AuthService {
 
   /// 🔑 EVALUADOR DE SESIÓN ACTIVA
   User? get usuarioActual => _supabase.auth.currentUser;
+
+  /// 🚀 GARANTIZA UNA SESIÓN CON TOKEN FRESCO ANTES DE CONSULTAR DATOS
+  // Rehidrata la sesión persistida y refresca el access token si venció,
+  // para que los primeros requests del arranque en frío no fallen con 401.
+  // Mismo mecanismo que supabase_flutter usa de forma interna (SupabaseAuth.recoverSession).
+  Future<bool> asegurarSesionLista() async {
+    try {
+      final auth = _supabase.auth;
+      final persistSessionKey =
+          'sb-${Uri.parse(supabaseUrl).host.split('.').first}-auth-token';
+      final localStorage = SharedPreferencesLocalStorage(
+        persistSessionKey: persistSessionKey,
+      );
+      if (await localStorage.hasAccessToken()) {
+        final persistedSession = await localStorage.accessToken();
+        if (persistedSession != null) {
+          await auth
+              .recoverSession(persistedSession)
+              .timeout(const Duration(seconds: 5));
+        }
+      }
+      return auth.currentSession != null;
+    } catch (e) {
+      debugPrint('Aviso al asegurar sesión/actualizar token: $e');
+      return _supabase.auth.currentSession != null;
+    }
+  }
 }

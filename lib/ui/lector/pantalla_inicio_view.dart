@@ -32,6 +32,10 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
   bool _cargandoDashboard = true;
   bool _estaOnline = true;
   
+  // 🛟 Contador de reintentos automáticos del dashboard (máximo 1 tras el
+  // arranque en frío): evita quedarse en ceros si la primera sonda falla.
+  int _reintentosDashboard = 0;
+  
   // Punto 1: Hábitos
   int _rachaDias = 0;
   int _totalCapitulosLeidos = 0;
@@ -77,6 +81,15 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
     _ajustesGlobales.cargarAjustes();
     _ajustesGlobales.addListener(() { if (mounted) setState(() {}); });
     _recuperarDatosPerfilGoogle();
+    _inicializarDashboard();
+  }
+
+  /// 🚀 CARGA INICIAL DEL ESCRITORIO CON SESIÓN FRESCA:
+  // `asegurarSesionLista()` rehidrata la sesión y refresca el access token
+  // vencido antes de la primera consulta, para que no falle con 401.
+  Future<void> _inicializarDashboard() async {
+    await _authService.asegurarSesionLista();
+    if (!mounted) return;
     _refrescarDatosDesdeNube();
   }
 
@@ -95,17 +108,19 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
   Future<void> _refrescarDatosDesdeNube() async {
     if (!mounted) return;
     setState(() => _cargandoDashboard = true);
+    bool datosCargados = false;
+    final String usuarioUid = _supabase.auth.currentUser?.id ?? '';
 
     try {
       // 1. Verificar Conectividad Real
       try {
-        await _supabase.from('perfiles_pastor').select('id').limit(1).timeout(const Duration(milliseconds: 1000));
+        // Sonda tolerante a redes móviles lentas (antes 1s, a veces marcaba
+        // "offline" en frío y el dashboard quedaba en ceros).
+        await _supabase.from('perfiles_pastor').select('id').limit(1).timeout(const Duration(milliseconds: 4000));
         _estaOnline = true;
       } catch (_) { 
         _estaOnline = false; 
       }
-
-      final String usuarioUid = _supabase.auth.currentUser?.id ?? '';
 
       // 2. Cargar Racha e Historial Devocional Remoto (Sincronizado al Segundo)
       if (_estaOnline && usuarioUid.isNotEmpty) {
@@ -198,6 +213,7 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
           _totalLibrosCompletados = librosTerminados;
           _librosFaltantes = pendientes;
         });
+        datosCargados = true;
       }
 
       // 3. Ecosistema Analítico de Bosquejos y Homilética
@@ -282,6 +298,18 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
 
     } catch (e) { 
       debugPrint("Error cargando dashboard unificado: $e"); 
+    }
+
+    // 🛟 REINTENTO AUTOMÁTICO ÚNICO (máximo 1): si la primera carga quedó en
+    // "modo offline" (sonda con timeout o 401 por token vencido) pero hay
+    // sesión activa, se vuelve a intentar en 2s para que el arranque en frío
+    // termine mostrando los datos reales en vez de ceros.
+    if (!datosCargados && usuarioUid.isNotEmpty && _reintentosDashboard == 0 && mounted) {
+      _reintentosDashboard = 1;
+      debugPrint('📊 Dashboard en ceros (sonda offline/401). Reintentando en 2s...');
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (mounted) _refrescarDatosDesdeNube();
+      });
     }
 
     if (mounted) setState(() => _cargandoDashboard = false);

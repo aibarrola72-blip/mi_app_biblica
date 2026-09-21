@@ -8,6 +8,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_app_biblica/domain/libros_catalogo.dart';
+import 'package:mi_app_biblica/data/auth_service.dart';
 
 class BibliaDatabaseHelper {
   static final BibliaDatabaseHelper _instance = BibliaDatabaseHelper._internal();
@@ -454,33 +455,48 @@ class BibliaDatabaseHelper {
     }
 
     // 2. CONTINGENCIA LOCAL EXTENDIDA: Si está desconectado o en el celular físico,
-    // recorremos secuencialmente todas las versiones registradas en tus activos locales.
+    // recorremos todas las versiones en LOTES PARALELOS (4 a la vez) para no
+    // congelar la tabla y evitar picos de RAM con 12 isolates simultáneos.
     List<Map<String, dynamic>> comparacionesLocales = [];
-    
+
     // 🚀 ARREGLO COMPLETO ACTUALIZADO ACORDE A TU PUBSPEC.YAML:
     final versionesAComparar = [
-      'RV1960', 'NVI', 'DHH', 'DHHS', 'LBLA', 
+      'RV1960', 'NVI', 'DHH', 'DHHS', 'LBLA',
       'NBLA', 'NTV', 'RVA2015', 'RVC', 'TLA', 'TLAI', 'NVIC'
     ];
 
-    for (var version in versionesAComparar) {
-      try {
-        // Reutiliza tu método optimizado de lectura híbrida/JSON local
-        final capituloCompleto = await obtenerCapitulo(libroId, capitulo, versionId: version);
-        
-        final versoEspecifico = capituloCompleto.firstWhere(
-          (v) => v['versiculo'] == versiculo,
-          orElse: () => {},
-        );
-        
-        if (versoEspecifico.isNotEmpty) {
-          comparacionesLocales.add({
-            'version_id': version,
-            'texto': versoEspecifico['texto'],
-          });
-        }
-      } catch (_) {
-        // Si el archivo JSON de alguna versión específica no existe o falla, se la salta sin romper las demás
+    const int tamanoLote = 4;
+    for (int inicio = 0; inicio < versionesAComparar.length; inicio += tamanoLote) {
+      final finLote = inicio + tamanoLote > versionesAComparar.length
+          ? versionesAComparar.length
+          : inicio + tamanoLote;
+      final lote = versionesAComparar.sublist(inicio, finLote);
+
+      final resultadosLote = await Future.wait(
+        lote.map((version) async {
+          try {
+            final capituloCompleto = await obtenerCapitulo(libroId, capitulo, versionId: version);
+
+            final versoEspecifico = capituloCompleto.firstWhere(
+              (v) => v['versiculo'] == versiculo,
+              orElse: () => {},
+            );
+
+            if (versoEspecifico.isNotEmpty) {
+              return <String, dynamic>{
+                'version_id': version,
+                'texto': versoEspecifico['texto'],
+              };
+            }
+          } catch (_) {
+            // Si el archivo JSON de alguna versión específica no existe o falla, se la salta sin romper las demás
+          }
+          return null;
+        }),
+      );
+
+      for (final resultado in resultadosLote) {
+        if (resultado != null) comparacionesLocales.add(resultado);
       }
     }
 
@@ -962,20 +978,45 @@ class BibliaDatabaseHelper {
   Future<List<Map<String, dynamic>>> obtenerHistorialLectura() async {
     try {
       final String? usuarioUid = _client.auth.currentUser?.id;
-      if (usuarioUid == null) return [];
+      if (usuarioUid == null) {
+        debugPrint('📜 Bitácora: sin sesión activa, se omite la consulta.');
+        return [];
+      }
 
-      // Consulta directa a la tabla de bitácora ordenando de la más reciente a la más antigua
-      final response = await _client
-          .from('progreso_lectura')
-          .select('libro_id, capitulo, fecha_lectura')
-          .eq('usuario_id', usuarioUid)
-          .order('fecha_lectura', ascending: false);
+      List<Map<String, dynamic>> registros;
+      try {
+        registros = await _consultarBitacoraRemota(usuarioUid);
+      } catch (e) {
+        // Primer intento falló (401 por token vencido en arranque en frío o red
+        // lenta): se refresca la sesión y se reintenta una sola vez.
+        debugPrint('📜 Primera consulta de bitácora falló ($e). Reintentando con token fresco...');
+        try {
+          await AuthService().asegurarSesionLista();
+          registros = await _consultarBitacoraRemota(usuarioUid);
+        } catch (retryError) {
+          debugPrint('📜 Reintento de bitácora sin éxito: $retryError');
+          return [];
+        }
+      }
 
-      return List<Map<String, dynamic>>.from(response);
+      debugPrint('📜 Bitácora: ${registros.length} registros para el usuario $usuarioUid.');
+      return registros;
     } catch (e) {
       debugPrint('Error al obtener la bitácora de lectura en el Helper: $e');
       return [];
     }
+  }
+
+  /// ⏳ Consulta con timeout tolerante a redes móviles lentas (4s).
+  Future<List<Map<String, dynamic>>> _consultarBitacoraRemota(String usuarioUid) async {
+    final response = await _client
+        .from('progreso_lectura')
+        .select('libro_id, capitulo, fecha_lectura')
+        .eq('usuario_id', usuarioUid)
+        .order('fecha_lectura', ascending: false)
+        .timeout(const Duration(milliseconds: 4000));
+
+    return List<Map<String, dynamic>>.from(response);
   }
 }
 

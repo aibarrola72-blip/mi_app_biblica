@@ -54,6 +54,9 @@ class _SplashScreenViewState extends State<SplashScreenView> {
 
     // 🚀 VALIDACIÓN DE SEGURIDAD EN TIEMPO REAL:
     try {
+    // Rehidrata la sesión y refresca el token vencido antes de entrar,
+    // para que las primeras consultas del arranque en frío no fallen con 401.
+    await _authService.asegurarSesionLista();
     final usuarioLogueado = _authService.usuarioActual;
 
     final int tiempoTranscurrido = DateTime.now().millisecondsSinceEpoch - milisegundosInicio;

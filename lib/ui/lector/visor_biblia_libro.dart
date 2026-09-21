@@ -1,6 +1,7 @@
 // lib/modules/lector/visor_biblia_libro.dart
 import 'dart:async'; 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_app_biblica/data/biblia_db_helper.dart';
@@ -730,8 +731,13 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
 
                             // Unimos los versículos compactos, la cita formal y la firma dinámica
                             final String message = '$textoCompletoBloque— $nombreLibro $_capituloSeleccionado:$versiculosFormateados ($_versionSeleccionada)\n$firmaEstructurada';
-                            
-                            SharePlus.instance.share(ShareParams(text: message)); 
+
+                            // 🌐 En web acompañamos los versículos con la URL actual de la página
+                            final String textoFinal = kIsWeb
+                                ? '$message\n🔗 ${Uri.base}'
+                                : message;
+
+                            SharePlus.instance.share(ShareParams(text: textoFinal)); 
                             
                             setState(() {
                               _versiculosSeleccionados.clear();
