@@ -58,21 +58,26 @@ class _VistaLectorBibliaState extends State<VistaLectorBiblia> {
     }
 
     // OPTIMIZACIÓN CONCURRENTE: Disparar ambas consultas en paralelo para reducir el tiempo a la mitad
-    final resultados = await Future.wait([
-      _dbHelper.obtenerCapitulo(widget.pasaje.libroId, widget.pasaje.capitulo),
-      _dbHelper.obtenerReferenciasCruzadas(widget.pasaje.libroId, widget.pasaje.capitulo, widget.pasaje.versiculo),
-    ]);
+    try {
+      final resultados = await Future.wait([
+        _dbHelper.obtenerCapitulo(widget.pasaje.libroId, widget.pasaje.capitulo),
+        _dbHelper.obtenerReferenciasCruzadas(widget.pasaje.libroId, widget.pasaje.capitulo, widget.pasaje.versiculo),
+      ]);
 
-    // MEDIDA DE SEGURIDAD: Evita fugas de memoria o errores fatales si el widget se destruyó en el proceso asíncrono
-    if (!mounted) return;
+      // MEDIDA DE SEGURIDAD: Evita fugas de memoria o errores fatales si el widget se destruyó en el proceso asíncrono
+      if (!mounted) return;
 
-    setState(() {
-      _versiculos = resultados[0];
-      _referencias = resultados[1];
-      _cargando = false;
-      _ultimoLibroId = widget.pasaje.libroId;
-      _ultimoCapitulo = widget.pasaje.capitulo;
-    });
+      setState(() {
+        _versiculos = resultados[0];
+        _referencias = resultados[1];
+        _cargando = false;
+        _ultimoLibroId = widget.pasaje.libroId;
+        _ultimoCapitulo = widget.pasaje.capitulo;
+      });
+    } catch (e) {
+      debugPrint('Error al cargar el texto bíblico: $e');
+      if (mounted) setState(() => _cargando = false);
+    }
 
     // Desplazamiento automático al versículo seleccionado tras el redibujo de la pantalla
     WidgetsBinding.instance.addPostFrameCallback((_) => _hacerScrollAlVersiculo());

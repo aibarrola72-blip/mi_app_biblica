@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mi_app_biblica/data/biblia_db_helper.dart';
-import 'package:flutter/services.dart' show rootBundle;
+
 import 'package:mi_app_biblica/data/ajustes_config.dart';
 import 'package:mi_app_biblica/core/canal_eventos.dart'; 
 import 'package:share_plus/share_plus.dart';
@@ -166,59 +166,16 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
       _resaltadosLocales = decoded.map((key, value) => MapEntry(key, value as int));
     }
 
-    // 2. NIVEL HÍBRIDO (Supabase con caída automática a SQLite Local)
-    List<Map<String, dynamic>> datos = await _dbHelper.obtenerCapitulo(
-      _libroSeleccionado,
-      _capituloSeleccionado,
-      versionId: _versionSeleccionada,
-    );
-
-    // 3. 🚀 SQUELCH DE CONTINGENCIA ABSOLUTO (Modo Avión sin caché previa)
-    // Si Supabase falló Y SQLite está en blanco, extraemos la información del JSON local
-    if (datos.isEmpty) {
-      try {
-        final Map<String, String> mapeoArchivosJson = {
-          'RV1960': 'rv1960', 'NVI': 'nvi128', 'RVC': 'rvc', 'RVA2015': 'rva2015',
-          'TLA': 'tla', 'TLAI': 'tlai', 'NVIC': 'nvi1637', 'NTV': 'ntv',
-          'NBLA': 'nbla', 'LBLA': 'lbla', 'DHH': 'dhh', 'DHHS': 'dhhs',
-        };
-
-        final String nombreArchivo = mapeoArchivosJson[_versionSeleccionada] ?? 'rv1960';
-        
-        // Abrimos el JSON real de tus carpetas assets
-        final String contenidoJsonCrudo = await rootBundle.loadString('assets/biblias/$nombreArchivo.json');
-        final Map<String, dynamic> objetoBiblia = jsonDecode(contenidoJsonCrudo);
-        final List<dynamic> librosJson = objetoBiblia['books'] ?? [];
-
-        if (librosJson.length >= _libroSeleccionado) {
-          final Map<String, dynamic> libroMap = librosJson[_libroSeleccionado - 1];
-          final List<dynamic> capitulosJson = libroMap['chapters'] ?? [];
-
-          if (capitulosJson.length >= _capituloSeleccionado) {
-            final Map<String, dynamic> capituloMap = capitulosJson[_capituloSeleccionado - 1];
-            final List<dynamic> itemsVersiculos = capituloMap['items'] ?? [];
-            
-            List<Map<String, dynamic>> textosOfflineJson = [];
-
-            for (var item in itemsVersiculos) {
-              if (item['type'] == 'verse') {
-                final List<dynamic> numerosVerso = item['verse_numbers'] ?? [];
-                final List<dynamic> lineasTexto = item['lines'] ?? [];
-
-                if (numerosVerso.isNotEmpty && lineasTexto.isNotEmpty) {
-                  textosOfflineJson.add({
-                    'versiculo': (numerosVerso.first as num).toInt(),
-                    'texto': lineasTexto.first.toString().trim(),
-                  });
-                }
-              }
-            }
-            datos = textosOfflineJson; // Asignamos los datos del JSON local
-          }
-        }
-      } catch (e) {
-        debugPrint('Error en lectura de archivos JSON físicos: $e');
-      }
+    // 2. NIVEL HÍBRIDO (Supabase con caída automática a SQLite Local y JSON en isolate)
+    List<Map<String, dynamic>> datos = [];
+    try {
+      datos = await _dbHelper.obtenerCapitulo(
+        _libroSeleccionado,
+        _capituloSeleccionado,
+        versionId: _versionSeleccionada,
+      );
+    } catch (e) {
+      debugPrint('Error al cargar el capítulo: $e');
     }
 
     // 4. Renderizamos los datos finales obtenidos en la pantalla

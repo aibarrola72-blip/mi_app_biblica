@@ -93,33 +93,14 @@ class BibliaDatabaseHelper {
   // 🚀 REEMPLAZA EL MÉTODO EXACTO EN TU BIBLIA_DB_HELPER.DART
   int obtenerLibroId(String nombreLibro) => obtenerIdLibro(nombreLibro);
 
-  // 🚀 LECTURA DE CAPÍTULO OFFLINE-FIRST (SQLite → Nube → JSON en isolate)
-  // No consume red cuando la biblia offline ya está poblada y ningún
-  // jsonDecode pesado se ejecuta en el hilo de interfaz.
+  // 🚀 LECTURA DE CAPÍTULO NUBE-PRIMERO CON CONTINGENCIA JSON LOCAL
+  // Supabase es la fuente canónica cuando hay señal (y la cachea en SQLite);
+  // si falla, se lee de SQLite y, en última instancia, del JSON en un isolate.
   Future<List<Map<String, dynamic>>> obtenerCapitulo(int libroId, int capitulo, {String versionId = 'RV1960'}) async {
     final llaveCache = '${versionId}_${libroId}_$capitulo';
     if (_cacheCapitulos.containsKey(llaveCache)) return _cacheCapitulos[llaveCache]!;
 
-    // 1. PERSISTENCIA LOCAL SQLITE (biblioteca completa precargada en segundo plano)
-    if (!kIsWeb) {
-      final db = await databaseLocal;
-      if (db != null) {
-        final resultadoLocal = await db.query(
-          'cache_versiculos',
-          where: 'version_id = ? AND libro_id = ? AND capitulo = ?',
-          whereArgs: [versionId, libroId, capitulo],
-          orderBy: 'versiculo ASC',
-        );
-
-        if (resultadoLocal.isNotEmpty) {
-          final transformado = resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
-          _cacheCapitulos[llaveCache] = transformado;
-          return transformado;
-        }
-      }
-    }
-
-    // 2. NUBE: Supabase como fuente canónica cuando hay señal (y la cachea en SQLite)
+    // 1. NUBE: Supabase como fuente canónica cuando hay señal (y la cachea en SQLite)
     try {
       final response = await _client
           .from('versiculos')
@@ -159,6 +140,29 @@ class BibliaDatabaseHelper {
       }
     } catch (e) {
       debugPrint('Servidor inalcanzable. Buscando persistencia local SQLite... $e');
+    }
+
+    // 2. PERSISTENCIA LOCAL SQLITE (suaviza la lectura offline con lo ya cacheado)
+    if (!kIsWeb) {
+      try {
+        final db = await databaseLocal;
+        if (db != null) {
+          final resultadoLocal = await db.query(
+            'cache_versiculos',
+            where: 'version_id = ? AND libro_id = ? AND capitulo = ?',
+            whereArgs: [versionId, libroId, capitulo],
+            orderBy: 'versiculo ASC',
+          );
+
+          if (resultadoLocal.isNotEmpty) {
+            final transformado = resultadoLocal.map((row) => Map<String, dynamic>.from(row)).toList();
+            _cacheCapitulos[llaveCache] = transformado;
+            return transformado;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error de lectura en SQLite, usando JSON local: $e');
+      }
     }
 
     // 3. CONTINGENCIA JSON: parseo pesado en un isolate para nunca congelar la interfaz

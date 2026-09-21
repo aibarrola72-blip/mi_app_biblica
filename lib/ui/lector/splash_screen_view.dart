@@ -24,7 +24,6 @@ class _SplashScreenViewState extends State<SplashScreenView> {
   @override
   void initState() {
     super.initState();
-    _dbHelper.progresoOffline.addListener(_escucharProgresoOffline);
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _opacidad = 1.0);
     });
@@ -33,14 +32,7 @@ class _SplashScreenViewState extends State<SplashScreenView> {
 
   @override
   void dispose() {
-    _dbHelper.progresoOffline.removeListener(_escucharProgresoOffline);
     super.dispose();
-  }
-
-  void _escucharProgresoOffline() {
-    if (!mounted || _mostrarBotonLogin) return;
-    final String mensaje = _dbHelper.progresoOffline.value;
-    if (mensaje.isNotEmpty) setState(() => _estadoCarga = mensaje);
   }
 
   Future<void> _ejecutarPrecargaYVerificacion() async {
@@ -57,9 +49,6 @@ class _SplashScreenViewState extends State<SplashScreenView> {
           await db.rawQuery('PRAGMA synchronous = NORMAL;');
         }
         _dbHelper.obtenerMapaAbreviaturas();
-        // Población de la biblioteca offline en un isolate: no congela la UI
-        // y los futuros capítulos se leen por SQL en lugar de re-parssear JSON.
-        _dbHelper.inicializarBibliotecaOffline();
       }
     } catch (_) {}
 
@@ -134,6 +123,18 @@ class _SplashScreenViewState extends State<SplashScreenView> {
                       elevation: 2,
                     ),
                     onPressed: () async {
+                      if (kIsWeb) {
+                        // 🌐 En web el OAuth redirige a Google y vuelve con recarga completa:
+                        // no navegamos aquí; el splash (logo) se queda visible y,
+                        // al regresar con la sesión, el ruteo ocurre solo.
+                        setState(() {
+                          _mostrarBotonLogin = false;
+                          _estadoCarga = "Redirigiendo a Google...";
+                        });
+                        await _authService.iniciarSesionConGoogle();
+                        return;
+                      }
+
                       bool exito = await _authService.iniciarSesionConGoogle();
                       if (exito && context.mounted) {
                         Navigator.pushReplacement(

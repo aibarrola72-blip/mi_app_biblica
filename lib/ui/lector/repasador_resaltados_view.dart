@@ -1,4 +1,4 @@
-// lib/modules/lector/repasador_resaltados_view.dart
+// lib/ui/lector/repasador_resaltados_view.dart
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -35,7 +35,50 @@ class _RepasadorResaltadosViewState extends State<RepasadorResaltadosView> {
   @override
   void initState() {
     super.initState();
-    _recuperarYProcesarMarcas();
+    _inicializar();
+  }
+
+  Future<void> _inicializar() async {
+    await _sincronizarResaltadosConNube();
+    if (mounted) _recuperarYProcesarMarcas();
+  }
+
+  // Si el pastor está autenticado, trae los resaltados de la tabla remota
+  // resaltados_biblia y los fusiona con la caché local antes de armar la lista.
+  Future<void> _sincronizarResaltadosConNube() async {
+    final String? userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      final List<dynamic> respuesta = await Supabase.instance.client
+          .from('resaltados_biblia')
+          .select('llave_resaltado, color_hex')
+          .eq('user_id', userId);
+
+      final prefs = await SharedPreferences.getInstance();
+      final String? resaltadosRaw = prefs.getString('biblioteca_resaltados');
+
+      Map<String, dynamic> mapaLocal = {};
+      if (resaltadosRaw != null && resaltadosRaw.isNotEmpty) {
+        try {
+          mapaLocal = jsonDecode(resaltadosRaw) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      for (var item in respuesta) {
+        final String llave = item['llave_resaltado'].toString();
+        final int color = (item['color_hex'] as num).toInt();
+        if (color == 0) {
+          mapaLocal.remove(llave);
+        } else {
+          mapaLocal[llave] = color;
+        }
+      }
+
+      await prefs.setString('biblioteca_resaltados', jsonEncode(mapaLocal));
+    } catch (e) {
+      debugPrint('Error al sincronizar resaltados desde la nube: $e');
+    }
   }
 
   void _recuperarYProcesarMarcas() async {
@@ -127,8 +170,24 @@ class _RepasadorResaltadosViewState extends State<RepasadorResaltadosView> {
       Map<String, dynamic> mapa = jsonDecode(resaltadosRaw);
       mapa.remove(llave);
       await prefs.setString('biblioteca_resaltados', jsonEncode(mapa));
-      _recuperarYProcesarMarcas(); // Recarga la lista de forma reactiva
     }
+
+    // Sincronización remota: elimina la fila correspondiente en la nube
+    // usando el usuario actual para cumplir con las políticas RLS.
+    final String? userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      try {
+        await Supabase.instance.client
+            .from('resaltados_biblia')
+            .delete()
+            .eq('user_id', userId)
+            .eq('llave_resaltado', llave);
+      } catch (e) {
+        debugPrint('Error al eliminar resaltado de la nube: $e');
+      }
+    }
+
+    _recuperarYProcesarMarcas(); // Recarga la lista de forma reactiva
   }
 
   @override
