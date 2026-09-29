@@ -650,17 +650,20 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                               child: _circuloPaleta(
                                 colorValue, (int colorElegido) async {
                                   final List<int> loteAProcesar = List.from(_versiculosSeleccionados);
+                                  final Map<String, int> loteNube = {};
                                   for (int numV in loteAProcesar) {
                                     _alternarResaltadoVersiculoEnLote(numV, colorElegido);
                                     // Estructuramos la llave exacta de forma idéntica a tu persistencia
                                     final String llaveVersiculo = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numV';
-                                    await _dbHelper.sincronizarResaltadoAnube(llaveVersiculo, colorElegido);
+                                    loteNube[llaveVersiculo] = colorElegido;
                                   }
                                   await _guardarResaltadosEnDisco();
                                   setState(() {
                                     _versiculosSeleccionados.clear();_modoSeleccionMultiple = false;
                                     }
                                   );
+                                  // Sync en segundo plano: UN round-trip para todo el lote (antes 1 por versículo)
+                                  unawaited(_dbHelper.sincronizarResaltadoAnubeLote(loteNube));
                                 }
                               ),
                             );
@@ -673,13 +676,16 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                           tooltip: 'Borrar sombreados',
                           onPressed: () async {
                             final List<int> loteALimpiar = List.from(_versiculosSeleccionados);
-                            for (int numV in loteALimpiar) {_alternarResaltadoVersiculoEnLote(numV, 0);
-                              final String llaveVersiculo = '${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numV';
-                              await _dbHelper.sincronizarResaltadoAnube(llaveVersiculo, 0);
+                            final Map<String, int> loteNube = {};
+                            for (int numV in loteALimpiar) {
+                              _alternarResaltadoVersiculoEnLote(numV, 0);
+                              loteNube['${_versionSeleccionada}_${_libroSeleccionado}_${_capituloSeleccionado}_$numV'] = 0;
                             }
                             await _guardarResaltadosEnDisco();
                             setState(() {_versiculosSeleccionados.clear();_modoSeleccionMultiple = false;
                             });
+                            // color 0 = borrado lógico propagable por el cursor incremental
+                            unawaited(_dbHelper.sincronizarResaltadoAnubeLote(loteNube));
                           },
                         ),
                         VerticalDivider(color: esOscuro ? Colors.grey.shade800 : Colors.black12, width: 16, thickness: 1, indent: 10, endIndent: 10),

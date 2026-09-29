@@ -748,33 +748,195 @@ class BibliaDatabaseHelper {
       return [];
     }
   }
-  // 🚀 EN TU BIBLIA DATABASE HELPER:
-  Future<void> sincronizarResaltadoAnube(String llave, int colorHex) async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) return; // Si no está logueado, trabaja solo en local
+  static const String _claveColaResaltados = 'cola_sync_resaltados';
+  static const String _claveSemillaResaltados = 'semilla_resaltados_nube_v1';
 
-      if (colorHex == 0) {
-        // Si el color es cero, el pastor lo borró. Lo eliminamos de la nube.
-        await _client
-            .from('resaltados_biblia')
-            .delete()
-            .match({'user_id': user.id, 'llave_resaltado': llave});
-            debugPrint('🗑️ Resaltado eliminado de la nube: $llave');
-      } else {
-        // Si seleccionó color, lo guardamos o actualizamos (Upsert)
-        await _client.from('resaltados_biblia').upsert({
-          'user_id': user.id,
-          'llave_resaltado': llave,
-          'color_hex': colorHex,
-          'updated_at': DateTime.now().toIso8601String(),
-        },
-        onConflict: 'user_id,llave_resaltado',
-        );
-        debugPrint('✨ Resaltado sincronizado exitosamente en Supabase: $llave (Color: $colorHex)');
-      }
+  // 🚀 EN TU BIBLIA DATABASE HELPER:
+  // Borrado LÓGICO (color_hex = 0): la fila se conserva para que el cursor
+  // incremental gt('updated_at') de descargarResaltadosDeNube SIEMPRE
+  // propague el borrado a los demás dispositivos y a la pantalla de inicio.
+  Future<void> sincronizarResaltadoAnube(String llave, int colorHex) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return; // Si no está logueado, trabaja solo en local
+
+    try {
+      await _subirResaltado(user.id, llave, colorHex);
+      debugPrint(colorHex == 0
+          ? '🗑️ Resaltado borrado (lógico) en la nube: $llave'
+          : '✨ Resaltado sincronizado exitosamente en Supabase: $llave (Color: $colorHex)');
     } catch (e) {
       debugPrint('Aviso en sincronización de sombreado a Supabase: $e');
+      await _encolarResaltadoPendiente(llave, colorHex);
+    }
+  }
+
+  // Misma escritura que sincronizarResaltadoAnube pero en lote: N marcas de un
+  // mismo gesto (p.ej. selección múltiple del visor) caben en UN solo round-trip.
+  Future<void> sincronizarResaltadoAnubeLote(Map<String, int> llaves) async {
+    if (llaves.isEmpty) return;
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _subirLoteResaltados(user.id, llaves);
+      debugPrint('✨ Lote de resaltados sincronizado: ${llaves.length}');
+    } catch (e) {
+      debugPrint('Aviso en lote de sombreados a Supabase: $e');
+      for (final e in llaves.entries) {
+        await _encolarResaltadoPendiente(e.key, e.value);
+      }
+    }
+  }
+
+  // Único punto de escritura en lote sobre resaltados_biblia (idempotente
+  // gracias al ON CONFLICT (user_id, llave_resaltado)).
+  Future<void> _subirLoteResaltados(String userId, Map<String, int> llaves, {String? timestamp}) {
+    final String ahora = timestamp ?? _timestampUtc();
+    return _client.from('resaltados_biblia').upsert(
+      [
+        for (final e in llaves.entries)
+          {
+            'user_id': userId,
+            'llave_resaltado': e.key,
+            'color_hex': e.value,
+            'updated_at': ahora,
+          }
+      ],
+      onConflict: 'user_id,llave_resaltado',
+    );
+  }
+
+  Future<void> _subirResaltado(String userId, String llave, int colorHex) =>
+      _subirLoteResaltados(userId, {llave: colorHex});
+
+  // UTC con offset normalizado: evita que el cursor del cliente (string)
+  // mezcle formatos y compare mal contra lo que devuelve Supabase.
+  String _timestampUtc() => DateTime.now().toUtc().toIso8601String();
+
+  // 📥 OUTBOX: si falla la escritura (sin red / token vencido), la marca queda
+  // pendiente en SharedPreferences y se reintenta con flushColaResaltados().
+  Future<void> _encolarResaltadoPendiente(String llave, int colorHex) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final Map<String, dynamic> cola = _leerCola(prefs);
+      cola[llave] = colorHex;
+      // Techo de seguridad: si el servidor rechaza de forma sistemática
+      // (p. ej. columna color_hex fuera de rango), la cola no crece sin límite.
+      const int tope = 500;
+      while (cola.length > tope) {
+        cola.remove(cola.keys.first);
+      }
+      await prefs.setString(_claveColaResaltados, jsonEncode(cola));
+      debugPrint('⏳ Resaltado encolado para reintentar: $llave');
+    } catch (e) {
+      debugPrint('No se pudo encolar el resaltado pendiente: $e');
+    }
+  }
+
+  Map<String, dynamic> _leerCola(SharedPreferences prefs) {
+    final String? raw = prefs.getString(_claveColaResaltados);
+    if (raw == null || raw.isEmpty) return <String, dynamic>{};
+    try {
+      return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  /// Drena la cola de resaltados pendientes hacia la nube. Idempotente:
+  /// solo retira de la cola las llaves que realmente se subieron.
+  Future<void> flushColaResaltados() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, dynamic> cola = _leerCola(prefs);
+    if (cola.isEmpty) return;
+
+    // Solo subimos valores numéricos: un valor corrupto jamás debe traducirse
+    // a 0, porque equivaldría a borrar el resaltado en la nube.
+    final Map<String, int> pendientes = {};
+    for (final e in cola.entries) {
+      if (e.value is num) pendientes[e.key] = (e.value as num).toInt();
+    }
+    if (pendientes.isEmpty) {
+      await prefs.remove(_claveColaResaltados); // basura: se descarta
+      return;
+    }
+
+    try {
+      final String ahora = _timestampUtc();
+      await _subirLoteResaltados(user.id, pendientes, timestamp: ahora);
+
+      // Releemos: pudieron haberse encolado marcas nuevas mientras subía el lote
+      final Map<String, dynamic> restante = _leerCola(prefs);
+      pendientes.keys.forEach(restante.remove);
+      cola.keys.forEach(restante.remove); // limpia también valores corruptos
+      if (restante.isEmpty) {
+        await prefs.remove(_claveColaResaltados);
+      } else {
+        await prefs.setString(_claveColaResaltados, jsonEncode(restante));
+      }
+      debugPrint('📤 Cola de resaltados sincronizada: ${pendientes.length}');
+    } catch (e) {
+      debugPrint('Cola de resaltados aún pendiente (offline): $e');
+    }
+  }
+
+  // 🌱 SEMILLA ÚNICA: sube a resaltados_biblia los resaltados legados que sólo
+  // viven en el celular (SharedPreferences). Idempotente (upsert por clave
+  // única) y sólo activa el flag cuando TODOS los lotes subieron bien.
+  // Precedencia: LOCAL GANA sobre lo que exista en nube para esa llave.
+  Future<bool> sembrarResaltadosEnNube() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_claveSemillaResaltados) ?? false) return true;
+
+    final user = _client.auth.currentUser;
+    if (user == null) return false; // sin sesión: se reintenta en el próximo arranque
+
+    final String? raw = prefs.getString('biblioteca_resaltados');
+    if (raw == null || raw.isEmpty) {
+      await prefs.setBool(_claveSemillaResaltados, true); // nada que migrar
+      return true;
+    }
+
+    final Map<String, dynamic> mapa;
+    try {
+      mapa = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return false; // JSON corrupto: no tira la fuente de verdad local
+    }
+
+    // Filtro: llaves bien formadas y colores ARGB reales. El 0 (borrado
+    // lógico) no se siembra: no debe crear filas que significan "no existe".
+    final Map<String, int> sembrar = {};
+    for (final e in mapa.entries) {
+      if (e.key.split('_').length < 4) continue;
+      if (e.value is! num) continue;
+      final int color = (e.value as num).toInt();
+      if (color == 0) continue;
+      sembrar[e.key] = color;
+    }
+    if (sembrar.isEmpty) {
+      await prefs.setBool(_claveSemillaResaltados, true);
+      return true;
+    }
+
+    try {
+      const int tamanoLote = 500;
+      final List<String> llaves = sembrar.keys.toList();
+      for (int i = 0; i < llaves.length; i += tamanoLote) {
+        final int fin = (i + tamanoLote < llaves.length) ? i + tamanoLote : llaves.length;
+        await _subirLoteResaltados(user.id, {
+          for (final l in llaves.sublist(i, fin)) l: sembrar[l]!,
+        });
+      }
+      await prefs.setBool(_claveSemillaResaltados, true);
+      debugPrint('🌱 Resaltados legados migrados a la nube: ${sembrar.length}');
+      return true;
+    } catch (e) {
+      debugPrint('Semilla de resaltados pendiente (se reintenta en el próximo inicio): $e');
+      return false;
     }
   }
 
@@ -785,6 +947,11 @@ class BibliaDatabaseHelper {
     try {
       final user = _client.auth.currentUser;
       if (user == null) return {};
+
+      // 1º) Semilla: lo que sólo existe en el celular sube PRIMERO (local gana)
+      await sembrarResaltadosEnNube();
+      // 2º) Drenamos las marcas que fallaron en un intento previo (outbox)
+      await flushColaResaltados();
 
       final prefs = await SharedPreferences.getInstance();
       final String? ultimoSyncRaw = prefs.getString('ultimo_sync_resaltados');
@@ -819,7 +986,7 @@ class BibliaDatabaseHelper {
         }
 
         final String? upd = item['updated_at']?.toString();
-        if (upd != null && (cursor == null || upd.compareTo(cursor) > 0)) {
+        if (upd != null && _esPosterior(upd, cursor)) {
           cursor = upd;
         }
       }
@@ -834,6 +1001,17 @@ class BibliaDatabaseHelper {
       debugPrint('Error al descargar sombreados de Supabase: $e');
       return {};
     }
+  }
+
+  // Compara dos marcas de tiempo ISO-8601 por fecha real (no lexicográficamente):
+  // Supabase devuelve '+00:00' y el cliente puede enviar 'Z'/'-06:00', formatos
+  // que comparados como string producirían un cursor incorrecto.
+  bool _esPosterior(String candidato, String? cursor) {
+    if (cursor == null) return true;
+    final DateTime? t = DateTime.tryParse(candidato);
+    final DateTime? c = DateTime.tryParse(cursor);
+    if (t == null || c == null) return candidato.compareTo(cursor) > 0;
+    return t.isAfter(c);
   }
 
   /// 📋 CONSULTA DE RACHAS: Trae los días continuos de lectura del pastor
