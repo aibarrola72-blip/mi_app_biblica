@@ -51,7 +51,7 @@ class _ControladorNavegacionState extends State<ControladorNavegacion> {
       const VistaEditorBosquejo(),
       
       // Pestaña 2: Lector Bíblico Libro Completo
-      const VisorBibliaLibro(),
+      VisorBibliaLibro(onVolverInicio: () => _saltarAPestana(0)),
       
       // Pestaña 3: Buscador Global Concordancia
       PanelBusquedaGlobal(

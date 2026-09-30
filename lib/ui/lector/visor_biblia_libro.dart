@@ -12,7 +12,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart'; 
 
 class VisorBibliaLibro extends StatefulWidget {
-  const VisorBibliaLibro({super.key});
+  final VoidCallback? onVolverInicio;
+
+  const VisorBibliaLibro({super.key, this.onVolverInicio});
 
   @override
   State<VisorBibliaLibro> createState() => _VisorBibliaLibroState();
@@ -260,9 +262,15 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
         leading: IconButton( 
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           tooltip: 'Regresar al inicio',
-          onPressed: () {
-            Navigator.pop(context);
-          },
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                // Caso push (Drawer del editor): hay ruta debajo, se cierra el visor
+                Navigator.pop(context);
+              } else {
+                // Caso pestaña (IndexedStack, única ruta): jamás poppear, volver al inicio
+                widget.onVolverInicio?.call();
+              }
+            },
         ),
         titleSpacing: 0,
         // 🚀 LIMPIEZA DE BARRA: Ahora la AppBar solo muestra el nombre del Libro estético y nítido
@@ -548,11 +556,15 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 🚀 Muestra el eslabón interactivo si tiene referencias y no hay selección activa
+                              // 🚀 Eslabón interactivo: abre las referencias cruzadas del versículo
                               if (tieneReferencia && _versiculosSeleccionados.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.only(right: 6.0, top: 3.0),
-                                  child: Icon(Icons.link, size: 16, color: Colors.blue),
+                                InkWell(
+                                  onTap: () => _mostrarReferenciasCruzadas(numVerso),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 6.0, top: 3.0),
+                                    child: Icon(Icons.link, size: 16, color: Colors.blue),
+                                  ),
                                 ),
                               Expanded(
                                 child: RichText(
@@ -997,6 +1009,72 @@ class _VisorBibliaLibroState extends State<VisorBibliaLibro> {
     }
 
     return fragmentos;
+  }
+
+  // 🚀 MÉTODO MODAL: Lista las referencias cruzadas del versículo y permite saltar a ellas
+  Future<void> _mostrarReferenciasCruzadas(int versiculo) async {
+    final List<Map<String, dynamic>> refs = await _dbHelper.obtenerReferenciasCruzadas(
+      _libroSeleccionado,
+      _capituloSeleccionado,
+      versiculo,
+    );
+    if (!mounted || refs.isEmpty) return;
+
+    final String nombreOrigen = _dbHelper.obtenerNombreLibro(_libroSeleccionado);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '🔗 Referencias de $nombreOrigen $_capituloSeleccionado:$versiculo',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+              ),
+              const Divider(),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: refs.length,
+                  itemBuilder: (context, index) {
+                    final ref = refs[index];
+                    final int destLibro = (ref['destino_libro_id'] as num).toInt();
+                    final int destCap = (ref['destino_capitulo'] as num).toInt();
+                    final int destVer = (ref['destino_versiculo'] as num).toInt();
+                    final String nombreDest = _dbHelper.obtenerNombreLibro(destLibro);
+
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.menu_book, size: 16, color: Colors.orange),
+                      title: Text('$nombreDest $destCap:$destVer'),
+                      trailing: const Icon(Icons.arrow_forward, size: 14),
+                      onTap: () {
+                        Navigator.pop(context); // Cierra la hoja de referencias
+                        _histOriginalRegresoAlSaltar(versiculo: versiculo);
+                        setState(() {
+                          _libroSeleccionado = destLibro;
+                          _capituloSeleccionado = destCap;
+                          _versiculosSeleccionados
+                            ..clear()
+                            ..add(destVer);
+                          _modoSeleccionMultiple = true;
+                        });
+                        _cargarResaltadosYTexto();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // Método modular para guardar el rastro de lectura antes del salto

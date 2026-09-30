@@ -565,8 +565,14 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Meta de Lectura Bíblica General', 
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorTextoP)),
-                              Text('$_totalCapitulosLeidos / 1189 Caps', 
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: colorTextoP)),                              
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [                              
+                              Text('$_totalCapitulosLeidos / 1189 Capitulos leídos', 
                                 style: TextStyle(fontSize: 12, color: colorTextoS, fontWeight: FontWeight.bold)),
                             ],
                           ),
@@ -582,7 +588,13 @@ class _PantallaInicioViewState extends State<PantallaInicioView> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Libros Completados: $_totalLibrosCompletados / 66', 
-                                style: TextStyle(fontSize: 12, color: colorTextoS)),
+                                style: TextStyle(fontSize: 12, color: colorTextoS)),                              
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [                              
                               Text('Versículos Leídos: $_totalVersiculosLeidos', 
                                 style: TextStyle(fontSize: 12, color: colorTextoS, fontWeight: FontWeight.bold)
                               ),

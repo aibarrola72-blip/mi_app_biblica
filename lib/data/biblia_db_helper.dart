@@ -21,6 +21,8 @@ class BibliaDatabaseHelper {
   // CACHÉ EN MEMORIA GLOBAL: Funciona tanto en Web como en Móvil a velocidad luz
   final Map<String, List<Map<String, dynamic>>> _cacheCapitulos = {};
   final Map<String, List<Map<String, dynamic>>> _cacheReferencias = {};
+  // CACHÉ DEL CONJUNTO DE VERSÍCULOS CON ENLACES POR CAPÍTULO (evita el parpadeo del ícono 🔗)
+  final Map<String, Set<int>> _cacheVersosConRefs = {};
 
   // POBLACIÓN OFF LINE DE LA BIBLIOTECA EN SEGUNDO PLANO (progreso visible en el splash)
   bool _poblacionEnCurso = false;
@@ -420,8 +422,12 @@ class BibliaDatabaseHelper {
     return [];
   }
 
-  // 🚀 CORRECCIÓN DEFINITIVA: Forzado el tipado estricto <int> en la conversión del mapeo de Supabase
+  // 🚀 CORRECCIÓN DEFINITIVA: Tipado seguro, caché por capítulo y fallback a SQLite local
   Future<Set<int>> obtenerVersiculosConReferenciasEnCapitulo(int libroId, int capitulo) async {
+    final String llaveCache = '${libroId}_$capitulo';
+    final Set<int>? cacheado = _cacheVersosConRefs[llaveCache];
+    if (cacheado != null) return cacheado;
+
     try {
       final response = await _client
           .from('referencias_cruzadas')
@@ -429,12 +435,46 @@ class BibliaDatabaseHelper {
           .eq('origen_libro_id', libroId)
           .eq('origen_capitulo', capitulo)
           .timeout(const Duration(milliseconds: 1200));
-      
-      // 🚀 SOLUCIÓN: Usamos .cast<int>() para transformar la colección dinámica en un conjunto de enteros estricto
-      return Set<int>.from(response.map((f) => f['origen_versiculo'])).cast<int>();
-    } catch (_) { 
-      return <int>{}; // Retorno de contingencia vacío fuertemente tipado
+
+      // Conversión defensiva: acepta int o num sin lanzar en el cast
+      final Set<int> vinculos = <int>{};
+      for (final fila in response) {
+        final dynamic valor = fila['origen_versiculo'];
+        if (valor is num) vinculos.add(valor.toInt());
+      }
+      if (vinculos.isNotEmpty) {
+        _cacheVersosConRefs[llaveCache] = vinculos;
+        return vinculos;
+      }
+    } catch (_) {
+      // Sin red o timeout: cae al espejo local
     }
+
+    // 🛟 FALLBACK LOCAL: Versículos con referencias ya reflejados en cache_referencias
+    if (!kIsWeb) {
+      try {
+        final db = await databaseLocal;
+        if (db != null) {
+          final filas = await db.query(
+            'cache_referencias',
+            columns: ['origen_versiculo'],
+            distinct: true,
+            where: 'origen_libro_id = ? AND origen_capitulo = ?',
+            whereArgs: [libroId, capitulo],
+          );
+          if (filas.isNotEmpty) {
+            final Set<int> local = <int>{
+              for (final fila in filas)
+                if (fila['origen_versiculo'] is num)
+                  (fila['origen_versiculo'] as num).toInt(),
+            };
+            _cacheVersosConRefs[llaveCache] = local;
+            return local;
+          }
+        }
+      } catch (_) {}
+    }
+    return <int>{}; // Retorno de contingencia vacío fuertemente tipado
   }
 
   // 🚀 COMPARADOR MULTI-VERSIÓN ASÍNCRONO ADAPTADO A CONTINGENCIA LOCAL
@@ -508,6 +548,7 @@ class BibliaDatabaseHelper {
     // 1. Limpiar estructuras en la memoria RAM
     _cacheCapitulos.clear();
     _cacheReferencias.clear();
+    _cacheVersosConRefs.clear();
 
     // 2. Limpiar base de datos local física (Solo si no es entorno Web)
     if (!kIsWeb) {
